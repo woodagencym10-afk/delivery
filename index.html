@@ -6,7 +6,6 @@
   <title>Калькулятор Доставки</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
-    /* Анімація появи */
     .fade-in { animation: fadeIn 0.4s ease-out forwards; opacity: 0; transform: translateY(10px); }
     @keyframes fadeIn { to { opacity: 1; transform: translateY(0); } }
   </style>
@@ -31,7 +30,7 @@
 
         <div>
           <label class="block text-[10px] font-bold text-slate-400 uppercase mb-1 ml-1 tracking-wider">Куди (Населений пункт)</label>
-          <input id="city" type="text" class="w-full bg-white border border-slate-300 rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-slate-900 focus:border-transparent transition placeholder:text-slate-300" placeholder="Напр. Стрий" />
+          <input id="city" type="text" class="w-full bg-white border border-slate-300 rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-slate-900 focus:border-transparent transition placeholder:text-slate-300" placeholder="Напр. Рава-Руська" />
         </div>
 
         <div>
@@ -64,12 +63,15 @@
         </div>
       </div>
 
-      <button onclick="calculate()" id="calcBtn" class="w-full bg-slate-900 text-white font-bold py-4 rounded-xl hover:bg-slate-800 active:scale-[0.98] transition-all shadow-lg shadow-slate-900/20 text-sm tracking-wide">
+      <button id="calcBtn" class="w-full bg-slate-900 text-white font-bold py-4 rounded-xl hover:bg-slate-800 active:scale-[0.98] transition-all shadow-lg shadow-slate-900/20 text-sm tracking-wide">
         РОЗРАХУВАТИ
+      </button>
+      
+      <button id="resetBtn" class="w-full mt-2 bg-white border border-slate-200 text-slate-500 font-bold py-3 rounded-xl hover:bg-slate-50 transition text-xs tracking-wide">
+        Очистити форму
       </button>
 
       <div id="resultCard" class="hidden fade-in border border-slate-200 rounded-2xl p-5 bg-slate-50 relative overflow-hidden">
-        
         <div class="absolute top-4 right-4 bg-green-100 text-green-700 text-[10px] font-bold px-2 py-1 rounded uppercase tracking-wide">
           По маршруту
         </div>
@@ -115,40 +117,34 @@
   </div>
 
   <script>
-    // --- НАЛАШТУВАННЯ ЛОГІКИ (СЕРЦЕ КАЛЬКУЛЯТОРА) ---
+    // 1. КОНФІГУРАЦІЯ ЦІН (ОНОВЛЕНА 5000 для 1.2т)
     const LOGIC = {
-      // Мінімальні ціни по областях
       minPrice: {
         'львівська': 2000,
-        'волинська': 2500,
-        'рівненська': 2500,
-        'тернопільська': 2500,
+        'волинська': 3500,
+        'рівненська': 3500,
+        'тернопільська': 3500,
         'закарпатська': 4000
       },
       ratePerKm: 14, 
-      
-      // Націнки
       fees: {
-        mediumWeight: 1000,  // 500-1500 кг
-        heavyWeight: 2500,   // > 1500 кг
-        longLoad: 1500       // > 4 м
+        mediumWeight: 1000, // 500 - 1000 кг
+        heavyWeight: 3000,  // > 1000 кг (Було 2500)
+        longLoad: 1500      // > 4 м
       },
       zakarpattiaCoef: 1.2
     };
 
     let mapsReady = false;
-    // Ця функція викликається Гуглом, коли карта завантажилась
-    function initMaps() { mapsReady = true; console.log("Maps loaded"); }
+    function initMaps() { mapsReady = true; console.log("Google Maps loaded"); }
     window.initMaps = initMaps;
 
-    // Округлення до 500
     function roundTo500(num) {
       return Math.ceil(num / 500) * 500;
     }
 
-    // ГОЛОВНА ФУНКЦІЯ РОЗРАХУНКУ
+    // 2. ФУНКЦІЯ РОЗРАХУНКУ
     async function calculate() {
-      // Елементи інтерфейсу
       const ui = {
         city: document.getElementById('city'),
         region: document.getElementById('region'),
@@ -159,14 +155,12 @@
         dist: document.getElementById('distDisplay'),
         car: document.getElementById('carType'),
         lenStat: document.getElementById('lengthStatus'),
-        lenRow: document.getElementById('longLoadRow'),
         err: document.getElementById('errorBox'),
         deliv: document.getElementById('deliveryWarning'),
         other: document.getElementById('otherRegionWarning'),
         btn: document.getElementById('calcBtn')
       };
 
-      // Зчитуємо дані
       const val = {
         city: ui.city.value.trim(),
         region: ui.region.value,
@@ -174,13 +168,11 @@
         l: parseFloat(ui.length.value) || 0
       };
 
-      // Скидаємо вигляд
       ui.err.classList.add('hidden');
       ui.result.classList.add('hidden');
       ui.other.classList.add('hidden');
       ui.deliv.classList.add('hidden');
 
-      // Перевірки
       if (!val.city || !val.region) {
         ui.err.textContent = "Будь ласка, вкажіть місто та область.";
         ui.err.classList.remove('hidden');
@@ -193,46 +185,42 @@
       }
 
       if (!mapsReady) {
-        ui.err.textContent = "Система карт ще завантажується, спробуйте через секунду...";
+        ui.err.textContent = "Карта ще завантажується... Спробуйте через 2 секунди.";
         ui.err.classList.remove('hidden');
         return;
       }
 
-      // Блокуємо кнопку на час розрахунку
-      const originalBtnText = ui.btn.innerText;
+      const oldBtnText = ui.btn.innerText;
       ui.btn.innerText = "РАХУЄМО...";
       ui.btn.disabled = true;
-      ui.btn.classList.add('opacity-70');
+      ui.btn.classList.add('opacity-75');
 
       try {
-        // Запит до Google Maps
         const distKm = await getDistanceKm("Львів, Україна", `${val.city}, ${val.region}, Україна`);
         
-        // --- ЛОГІКА РОЗРАХУНКУ ---
         let price = distKm * LOGIC.ratePerKm;
         
-        // 1. Коригування для близьких відстаней (до 50 км - фікс мінімалка)
-        if (distKm < 50) price = LOGIC.minPrice[val.region];
+        if (distKm < 50 && val.region === 'львівська') {
+            price = LOGIC.minPrice['львівська'];
+        }
 
-        // 2. Регіональний мінімум (не менше ніж...)
-        if (price < LOGIC.minPrice[val.region]) price = LOGIC.minPrice[val.region];
+        if (price < LOGIC.minPrice[val.region]) {
+            price = LOGIC.minPrice[val.region];
+        }
 
-        // 3. Вага
+        // --- ОНОВЛЕНА ЛОГІКА ВАГИ ---
         let carLabel = "Бус до 1.5т";
         if (val.w <= 500) {
            carLabel = "Легкий вантаж";
-        } else if (val.w > 500 && val.w <= 1500) {
+        } else if (val.w > 500 && val.w <= 1000) { // Змінено поріг на 1000 кг
            price += LOGIC.fees.mediumWeight;
-           carLabel = "Бус (до 1.5т)";
+           carLabel = "Бус (до 1т)";
         } else {
-           price += LOGIC.fees.heavyWeight;
-           carLabel = "Вантажівка (>1.5т)";
+           price += LOGIC.fees.heavyWeight; // Тепер +3000 грн для >1000 кг
+           carLabel = "Вантажівка (>1т)";
         }
 
-        // 4. Довжина (Негабарит)
-        let isLong = false;
         if (val.l > 4.05) { 
-           isLong = true;
            price += LOGIC.fees.longLoad;
            ui.lenStat.textContent = "> 4м (Негабарит)";
            ui.lenStat.className = "font-bold text-red-600";
@@ -241,21 +229,17 @@
            ui.lenStat.className = "font-bold text-slate-700";
         }
 
-        // 5. Закарпаття
         if (val.region === 'закарпатська') {
            price = Math.max(price, 4000); 
            if (distKm > 200 && val.w > 500) price *= LOGIC.zakarpattiaCoef;
         }
 
-        // 6. Округлення
         const finalPrice = roundTo500(price);
 
-        // 7. Показ результату
         ui.price.textContent = finalPrice.toLocaleString('uk-UA') + " грн";
         ui.dist.textContent = distKm.toFixed(0) + " км";
         ui.car.textContent = carLabel;
         
-        // Рекомендація Делівері
         if (val.w > 0 && val.w < 200 && distKm > 100) {
           ui.deliv.classList.remove('hidden');
         }
@@ -264,17 +248,15 @@
 
       } catch (error) {
         console.error(error);
-        ui.err.textContent = "Не вдалося прокласти маршрут. Перевірте назву міста.";
+        ui.err.textContent = "Не вдалося знайти такий маршрут. Перевірте назву міста.";
         ui.err.classList.remove('hidden');
       } finally {
-        // Повертаємо кнопку
-        ui.btn.innerText = originalBtnText;
+        ui.btn.innerText = oldBtnText;
         ui.btn.disabled = false;
-        ui.btn.classList.remove('opacity-70');
+        ui.btn.classList.remove('opacity-75');
       }
     }
 
-    // Допоміжна функція для карт
     function getDistanceKm(origin, dest) {
       return new Promise((resolve, reject) => {
         const svc = new google.maps.DistanceMatrixService();
@@ -283,13 +265,27 @@
           destinations: [dest],
           travelMode: 'DRIVING'
         }, (res, status) => {
-          if (status !== 'OK') return reject(status);
-          const el = res.rows[0].elements[0];
-          if (el.status !== 'OK') return reject(el.status);
-          resolve(el.distance.value / 1000);
+          if (status === 'OK' && res.rows[0].elements[0].status === 'OK') {
+            resolve(res.rows[0].elements[0].distance.value / 1000);
+          } else {
+            reject(status);
+          }
         });
       });
     }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        document.getElementById('calcBtn').addEventListener('click', calculate);
+        document.getElementById('resetBtn').addEventListener('click', () => {
+            document.getElementById('city').value = '';
+            document.getElementById('weight').value = '';
+            document.getElementById('length').value = '';
+            document.getElementById('region').selectedIndex = 0;
+            document.getElementById('resultCard').classList.add('hidden');
+            document.getElementById('errorBox').classList.add('hidden');
+        });
+    });
+
   </script>
   
   <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyDFR9n0yr9SEPDWGyH1G_dDJBit7bxvy_Y&libraries=places&callback=initMaps" async defer></script>
