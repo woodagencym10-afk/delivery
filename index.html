@@ -6,6 +6,7 @@
   <title>Логістичний Калькулятор (Smart)</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
+    /* Легка анімація для появи результату */
     .fade-in { animation: fadeIn 0.5s ease-in; }
     @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
   </style>
@@ -22,6 +23,12 @@
     <div class="p-8 space-y-5">
       
       <div class="space-y-4">
+        
+        <div>
+           <label class="block text-xs font-bold text-slate-400 uppercase mb-1 ml-1">Звідки</label>
+           <input type="text" value="Львів" disabled class="w-full bg-slate-100 border border-slate-200 text-slate-500 rounded-xl px-4 py-3 outline-none cursor-not-allowed" />
+        </div>
+
         <div>
           <label class="block text-xs font-bold text-slate-500 uppercase mb-1 ml-1">Куди (Населений пункт)</label>
           <input id="city" type="text" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-slate-900 transition" placeholder="Напр. Стрий, Луцьк, Мукачево" />
@@ -53,4 +60,23 @@
       </div>
 
       <div class="flex gap-3 pt-2">
-        <button onclick="calculate()" class="
+        <button onclick="calculate()" class="flex-1 bg-slate-900 text-white font-bold py-4 rounded-xl hover:bg-slate-800 active:scale-95 transition shadow-lg shadow-slate-900/20">
+          Розрахувати
+        </button>
+        <button onclick="resetForm()" class="px-5 py-4 rounded-xl border border-slate-200 text-slate-500 hover:bg-slate-50 transition">
+          ↺
+        </button>
+      </div>
+
+      <div id="resultCard" class="hidden fade-in border-t border-dashed border-slate-200 pt-6 mt-4">
+        
+        <div id="deliveryWarning" class="hidden mb-4 p-3 bg-blue-50 text-blue-800 text-sm rounded-lg border border-blue-100 flex items-start gap-2">
+          <span class="text-xl">💡</span>
+          <div>
+            <strong>Рекомендація:</strong> Вантаж легкий і відстань значна. Економічно вигідніше відправити службою 
+            <a href="https://www.delivery-auto.com/uk/CalculateCost" target="_blank" class="underline font-bold">Delivery</a>.
+            <div class="text-xs text-blue-600 mt-1">Ціна нижче — за окреме місце в машині (попутно).</div>
+          </div>
+        </div>
+
+        <div id="otherRegionWarning" class="hidden mb-4 p-4 bg-red-50 text-red-800 text-sm
