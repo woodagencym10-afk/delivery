@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Калькулятор доставки (Оновлений)</title>
+  <title>Калькулятор доставки (Pro)</title>
   <script src="https://cdn.tailwindcss.com"></script>
 </head>
 <body class="bg-gray-50 text-gray-900 font-sans">
@@ -28,7 +28,7 @@
           <input
             id="destination"
             class="w-full mt-1 rounded-lg border border-gray-300 px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition"
-            placeholder="Напр. Стрий"
+            placeholder="Напр. Рава-Руська"
           />
         </div>
         <div>
@@ -115,11 +115,12 @@
             <span>Відстань (Львів → Клієнт):</span>
             <span id="distVal" class="font-medium text-gray-900">0 км</span>
           </div>
-          <div id="deviationRow" class="flex justify-between hidden text-orange-700">
-            <span>+ Відхилення від хабу (×2):</span>
-            <span id="devVal" class="font-medium">0 км</span>
+          <div id="billableRow" class="flex justify-between text-blue-700">
+            <span>Оплачується (Кругорейс/Відхилення):</span>
+            <span id="billableVal" class="font-bold">0 км</span>
           </div>
-          <div id="zakarpattiaRow" class="hidden text-blue-700 font-medium mt-1">
+          
+          <div id="zakarpattiaRow" class="hidden text-purple-700 font-medium mt-1">
             + 20% (Коефіцієнт Закарпаття)
           </div>
         </div>
@@ -137,16 +138,29 @@
       minPrice: 2000,
       baseFee: 400, // Подача/збір
       zakarpattiaCoef: 1.2, // +20%
-      hubRegions: ['волинська', 'рівненська', 'тернопільська'], // Де рахуємо відхилення в дві сторони
-      routeRegions: ['львівська', 'волинська', 'рівненська', 'тернопільська', 'закарпатська'], // "По маршруту"
+      
+      // Області, які ми вважаємо "своїми" і рахуємо за формулою (Туда + Відхилення/Назад)
+      // Тепер сюди входить і Львівська!
+      routeRegions: ['львівська', 'волинська', 'рівненська', 'тернопільська', 'закарпатська'], 
     };
 
-    // Центри областей для розрахунку відхилення
+    // Націнки за вагу (налаштуйте під себе!)
+    function getWeightFee(kg) {
+      if (kg > 2000) return 3000;      // Було 2000
+      if (kg > 1000) return 2000;      // ПІДНЯВ: Було 1000, стало 2000 (щоб вийти на ~4500-5000 грн)
+      if (kg >= 800) return 800;
+      if (kg >= 500) return 500;
+      return 0;
+    }
+
+    // Центри областей (Хаби)
     function getHubCity(regionNorm) {
       switch (regionNorm) {
         case 'волинська': return 'Луцьк, Україна';
         case 'рівненська': return 'Рівне, Україна';
         case 'тернопільська': return 'Тернопіль, Україна';
+        case 'закарпатська': return 'Ужгород, Україна';
+        case 'львівська': return 'Львів, Україна'; // Львів теж хаб сам для себе
         default: return null;
       }
     }
@@ -157,18 +171,17 @@
       fmt: (n) => new Intl.NumberFormat('uk-UA').format(n),
     };
 
-    // Специфічне заокруглення клієнта
-    // 2100 -> 2000 | 2400 -> 2500 | 2700 -> 3000
+    // Розумне заокруглення (2100->2000, 2400->2500, 2700->3000)
     function smartRound(amount) {
       const thousands = Math.floor(amount / 1000) * 1000;
       const remainder = amount % 1000;
 
-      if (remainder <= 250) {
-        return thousands; // вниз до 000
-      } else if (remainder <= 650) {
-        return thousands + 500; // до 500
+      if (remainder <= 200) {
+        return thousands; 
+      } else if (remainder <= 700) {
+        return thousands + 500; 
       } else {
-        return thousands + 1000; // вверх до наступної 000
+        return thousands + 1000; 
       }
     }
 
@@ -191,20 +204,18 @@
         cap: document.getElementById('capacityNote'),
         badge: document.getElementById('routeTypeBadge'),
         distVal: document.getElementById('distVal'),
-        devRow: document.getElementById('deviationRow'),
-        devVal: document.getElementById('devVal'),
+        billableVal: document.getElementById('billableVal'),
         zakRow: document.getElementById('zakarpattiaRow'),
       };
 
-      // Скидання UI
+      // Скидання
       els.err.classList.add('hidden');
       els.res.classList.add('hidden');
-      els.devRow.classList.add('hidden');
       els.zakRow.classList.add('hidden');
 
       const val = {
         city: els.dest.value.trim(),
-        region: els.reg.value.trim(),
+        reg: els.reg.value.trim(),
         regNorm: U.norm(els.reg.value),
         weight: +els.w.value || 0,
         len: +els.l.value || 0,
@@ -212,23 +223,21 @@
       };
 
       if (!val.city || !val.region) {
-        showError('Будь ласка, вкажіть місто та область.');
+        showError('Вкажіть місто та область.');
         return;
       }
-
       if (!mapsReady) {
-        showError('Карта ще завантажується, спробуйте через секунду.');
+        showError('Карта завантажується...');
         return;
       }
 
-      // Визначення типу регіону
-      const isHubRegion = CONFIG.hubRegions.includes(val.regNorm);
-      const isZakarpattia = val.regNorm === 'закарпатська';
+      // Тип регіону
       const isRouteRegion = CONFIG.routeRegions.includes(val.regNorm);
-      
-      // Тип доставки (Текст бейджа)
+      const isZakarpattia = val.regNorm === 'закарпатська';
+
+      // Бейдж
       if (isRouteRegion) {
-        els.badge.textContent = "По маршруту";
+        els.badge.textContent = "Свій автопарк";
         els.badge.className = "px-3 py-1 bg-green-100 rounded-full text-xs font-bold text-green-700 uppercase border border-green-200";
       } else {
         els.badge.textContent = "Попутний транспорт";
@@ -236,89 +245,83 @@
       }
 
       try {
-        // 1. Отримуємо основну дистанцію (Львів -> Клієнт)
-        const totalKm = await getDistance('Львів, Україна', `${val.city}, ${val.region}, Україна`);
-        els.distVal.textContent = totalKm.toFixed(1) + ' км';
+        // 1. Дистанція Львів -> Клієнт
+        const distToClient = await getDistance('Львів, Україна', `${val.city}, ${val.region}, Україна`);
+        els.distVal.textContent = distToClient.toFixed(1) + ' км';
 
-        let billableKm = totalKm;
-        
-        // 2. Якщо це Hub-регіон (Волинь, Рівне, Тернопіль), рахуємо відхилення
-        if (isHubRegion) {
+        let billableKm = distToClient;
+
+        // 2. Логіка "Сусідніх областей" (діє тепер і на Львівську)
+        // Формула: (Львів->Клієнт) + (Хаб->Клієнт)
+        // Для Львівської області це: Distance + Distance = 2 * Distance (Кругорейс)
+        if (isRouteRegion) {
           const hubCity = getHubCity(val.regNorm);
-          // Відстань Хаб -> Клієнт
-          const devKm = await getDistance(hubCity, `${val.city}, ${val.region}, Україна`);
-          
-          // Додаємо відхилення до оплачуваного кілометражу
-          // (Логіка: Основний маршрут вже включає проїзд до клієнта,
-          //  ми додаємо "зворотній шлях" відхилення або просто націнку за відхилення)
-          billableKm += devKm;
+          let devKm = 0;
 
-          if (devKm > 1) {
-            els.devRow.classList.remove('hidden');
-            els.devVal.textContent = `+ ${devKm.toFixed(1)} км`;
+          if (val.regNorm === 'львівська') {
+            // Для Львова відхилення = тій самій дистанції (оплата в дві сторони)
+            devKm = distToClient;
+          } else {
+            // Для інших - дистанція від їхнього облцентру
+            devKm = await getDistance(hubCity, `${val.city}, ${val.region}, Україна`);
           }
+
+          billableKm += devKm;
         }
 
-        // 3. Базова вартість по кілометражу
+        // Відображаємо, за скільки км реально платить клієнт
+        els.billableVal.textContent = billableKm.toFixed(1) + ' км';
+
+        // 3. Базова ціна
         let price = billableKm * CONFIG.pricePerKm;
 
-        // 4. Доплати (Вага, Довжина, Дорога, База)
-        const surcharges = calculateSurcharges(val.weight, val.len, val.road);
-        price += surcharges;
-        price += CONFIG.baseFee;
+        // 4. Націнки
+        price += getWeightFee(val.weight); // Вага (тепер +2000 грн для >1т)
+        price += getLengthFee(val.len);    // Довжина
+        price += getRoadFee(val.road);     // Дорога
+        price += CONFIG.baseFee;           // Подача
 
-        // 5. Закарпаття +20%
+        // 5. Закарпаття
         if (isZakarpattia) {
           price = price * CONFIG.zakarpattiaCoef;
           els.zakRow.classList.remove('hidden');
         }
 
-        // 6. Мінімалка
+        // 6. Мінімалка та Округлення
         if (price < CONFIG.minPrice) price = CONFIG.minPrice;
-
-        // 7. Розумне заокруглення
         const finalPrice = smartRound(price);
 
-        // Відображення
+        // Результат
         els.total.textContent = U.fmt(finalPrice) + ' грн';
         els.res.classList.remove('hidden');
 
-        // Перевірка обмежень транспорту
         checkCapacity(val.weight, val.len);
 
       } catch (e) {
         console.error(e);
-        showError('Не вдалося розрахувати маршрут. Перевірте правильність написання міста.');
+        showError('Помилка розрахунку. Перевірте назву міста.');
       }
     }
 
-    // --- ДОПОМІЖНІ ФУНКЦІЇ ---
+    // --- ДОДАТКОВІ ФУНКЦІЇ ---
 
-    function calculateSurcharges(kg, m, road) {
-      let fee = 0;
-      
-      // Вага
-      if (kg > 2000) fee += 2000;
-      else if (kg > 1000) fee += 1000;
-      else if (kg >= 800) fee += 800;
-      else if (kg >= 500) fee += 500;
+    function getLengthFee(m) {
+      if (m >= 6) return 1000;
+      if (m >= 5) return 600;
+      return 0;
+    }
 
-      // Довжина
-      if (m >= 6) fee += 1000;
-      else if (m >= 5) fee += 600;
-
-      // Дорога
-      if (road === 'dirt') fee += 800;
-      if (road === 'rocky') fee += 400;
-
-      return fee;
+    function getRoadFee(type) {
+      if (type === 'dirt') return 800;
+      if (type === 'rocky') return 400;
+      return 0;
     }
 
     function checkCapacity(kg, m) {
       const box = document.getElementById('capacityNote');
       let warns = [];
-      if (kg > 2500) warns.push("Вага > 2.5т (потрібен інший транспорт).");
-      if (m > 6) warns.push("Довжина > 6м (негабарит).");
+      if (kg > 2500) warns.push("Вага > 2.5т.");
+      if (m > 6) warns.push("Довжина > 6м.");
       
       if (warns.length > 0) {
         box.textContent = "Увага: " + warns.join(" ");
@@ -334,7 +337,6 @@
       b.classList.remove('hidden');
     }
 
-    // Обгортка для Google Maps Distance Matrix
     function getDistance(origin, dest) {
       return new Promise((resolve, reject) => {
         const svc = new google.maps.DistanceMatrixService();
@@ -349,13 +351,12 @@
             if (status !== 'OK') return reject(status);
             const el = res.rows[0].elements[0];
             if (el.status !== 'OK') return reject(el.status);
-            resolve(el.distance.value / 1000); // повертає км
+            resolve(el.distance.value / 1000);
           }
         );
       });
     }
 
-    // Події
     document.getElementById('btnCalc').addEventListener('click', calculate);
     document.getElementById('btnReset').addEventListener('click', () => {
       document.getElementById('destination').value = '';
@@ -364,7 +365,6 @@
       document.getElementById('lengthM').value = '';
       document.getElementById('resultBlock').classList.add('hidden');
       document.getElementById('errBox').classList.add('hidden');
-      document.getElementById('capacityNote').classList.add('hidden');
     });
 
   </script>
