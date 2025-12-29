@@ -15,190 +15,119 @@
 <body class="bg-slate-100 font-sans min-h-screen flex items-center justify-center p-4">
 
   <div class="w-full max-w-[480px] bg-white rounded-3xl shadow-xl overflow-hidden border border-slate-200">
-    
-    <div class="bg-slate-900 p-6 text-center relative overflow-hidden">
-      <div class="absolute top-0 left-0 w-full h-full bg-gradient-to-br from-slate-800 to-slate-900 z-0"></div>
-      <div class="relative z-10">
-        <h1 class="text-xl font-bold text-white mb-1">Калькулятор Доставки</h1>
-        <p class="text-slate-400 text-[10px] uppercase tracking-widest opacity-80">Західна Україна</p>
-      </div>
+    <div class="bg-slate-900 p-6 text-center relative">
+      <h1 class="text-xl font-bold text-white mb-1">Калькулятор Доставки</h1>
+      <p class="text-slate-400 text-[10px] uppercase tracking-widest">Західна Україна</p>
     </div>
 
     <div class="p-6 space-y-5">
       <div class="space-y-4">
         <div>
-           <label class="block text-[10px] font-bold text-slate-400 uppercase mb-1 ml-1 tracking-wider">Звідки</label>
+           <label class="block text-[10px] font-bold text-slate-400 uppercase mb-1 ml-1">Звідки</label>
            <input type="text" value="Львів" disabled class="w-full bg-slate-100 border border-slate-200 text-slate-500 rounded-xl px-4 py-3 text-sm font-medium outline-none cursor-not-allowed" />
         </div>
-
         <div>
-          <label class="block text-[10px] font-bold text-slate-400 uppercase mb-1 ml-1 tracking-wider">Куди (Населений пункт)</label>
-          <input id="city" type="text" class="w-full bg-white border border-slate-300 rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-slate-900 focus:border-transparent transition placeholder:text-slate-300" placeholder="Напр. Стрий, Клесів..." autocomplete="off" />
+          <label class="block text-[10px] font-bold text-slate-400 uppercase mb-1 ml-1">Куди (Населений пункт)</label>
+          <input id="city" type="text" class="w-full bg-white border border-slate-300 rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-slate-900" placeholder="Введіть місто..." autocomplete="off" />
         </div>
-
         <div>
-          <label class="block text-[10px] font-bold text-slate-400 uppercase mb-1 ml-1 tracking-wider">Область</label>
-          <div class="relative">
-            <select id="region" class="w-full bg-white border border-slate-300 rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-slate-900 focus:border-transparent transition appearance-none cursor-pointer">
-              <option value="" disabled selected>Оберіть область</option>
-              <option value="львівська">Львівська область</option>
-              <option value="волинська">Волинська область</option>
-              <option value="рівненська">Рівненська область</option>
-              <option value="тернопільська">Тернопільська область</option>
-              <option value="закарпатська">Закарпатська область</option>
-              <option value="other">Інша область (Індивідуально)</option>
-            </select>
-            <div class="absolute inset-y-0 right-0 flex items-center px-4 pointer-events-none">
-              <svg class="w-4 h-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
-            </div>
-          </div>
+          <label class="block text-[10px] font-bold text-slate-400 uppercase mb-1 ml-1">Область</label>
+          <select id="region" class="w-full bg-white border border-slate-300 rounded-xl px-4 py-3 text-sm outline-none cursor-pointer">
+            <option value="" disabled selected>Оберіть область</option>
+            <option value="львівська">Львівська область</option>
+            <option value="волинська">Волинська область</option>
+            <option value="рівненська">Рівненська область</option>
+            <option value="тернопільська">Тернопільська область</option>
+            <option value="закарпатська">Закарпатська область</option>
+          </select>
         </div>
-
         <div class="grid grid-cols-2 gap-4">
           <div>
-            <label class="block text-[10px] font-bold text-slate-400 uppercase mb-1 ml-1 tracking-wider">Вага (кг)</label>
-            <input id="weight" type="number" min="0" class="w-full bg-white border border-slate-300 rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-slate-900 transition placeholder:text-slate-300" placeholder="0" />
+            <label class="block text-[10px] font-bold text-slate-400 uppercase mb-1 ml-1">Вага (кг)</label>
+            <input id="weight" type="number" class="w-full bg-white border border-slate-300 rounded-xl px-4 py-3 text-sm" placeholder="0" />
           </div>
           <div>
-            <label class="block text-[10px] font-bold text-slate-400 uppercase mb-1 ml-1 tracking-wider">Довжина (м)</label>
-            <input id="length" type="number" step="0.1" min="0" class="w-full bg-white border border-slate-300 rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-slate-900 transition placeholder:text-slate-300" placeholder="0" />
+            <label class="block text-[10px] font-bold text-slate-400 uppercase mb-1 ml-1">Довжина (м)</label>
+            <input id="length" type="number" step="0.1" class="w-full bg-white border border-slate-300 rounded-xl px-4 py-3 text-sm" placeholder="0" />
           </div>
         </div>
       </div>
 
-      <button id="calcBtn" disabled class="w-full bg-slate-900 disabled:bg-slate-400 disabled:cursor-not-allowed text-white font-bold py-4 rounded-xl hover:bg-slate-800 active:scale-[0.98] transition-all shadow-lg shadow-slate-900/20 text-sm tracking-wide flex justify-center items-center gap-2">
+      <button id="calcBtn" disabled class="w-full bg-slate-900 text-white font-bold py-4 rounded-xl shadow-lg text-sm flex justify-center items-center gap-2">
         <span>ЗАВАНТАЖЕННЯ КАРТИ...</span>
       </button>
-      
-      <button id="resetBtn" class="w-full mt-2 bg-white border border-slate-200 text-slate-500 font-bold py-3 rounded-xl hover:bg-slate-50 transition text-xs tracking-wide">
-        Очистити форму
-      </button>
 
-      <div id="resultCard" class="hidden fade-in mt-4 border border-slate-200 rounded-2xl p-5 bg-slate-50 relative overflow-hidden">
-        <div class="absolute top-4 right-4 bg-green-100 text-green-700 text-[10px] font-bold px-2 py-1 rounded uppercase tracking-wide">По маршруту</div>
-        <div class="text-slate-500 text-xs font-medium mb-1">Орієнтовна вартість:</div>
-        <div id="finalPrice" class="text-4xl font-black text-slate-900 tracking-tight mb-4">0 грн</div>
-        <div class="space-y-2 border-t border-slate-200 pt-3">
-          <div class="flex justify-between text-xs pt-1">
-             <span class="text-slate-500">Відстань (в один бік):</span>
-             <span id="distDisplay" class="font-bold text-slate-700">0 км</span>
-          </div>
-          <div class="flex justify-between text-xs">
-             <span class="text-slate-500">Тип авто:</span>
-             <span id="carType" class="font-bold text-slate-700">—</span>
-          </div>
-          <div class="flex justify-between text-xs">
-             <span class="text-slate-500">Габарит:</span>
-             <span id="lengthStatus" class="font-bold text-slate-700">—</span>
-          </div>
+      <div id="resultCard" class="hidden fade-in mt-4 border border-slate-200 rounded-2xl p-5 bg-slate-50">
+        <div class="text-slate-500 text-xs mb-1">Орієнтовна вартість:</div>
+        <div id="finalPrice" class="text-4xl font-black text-slate-900 mb-4">0 грн</div>
+        <div class="space-y-2 border-t border-slate-200 pt-3 text-xs">
+          <div class="flex justify-between"><span>Відстань:</span><span id="distDisplay" class="font-bold">0 км</span></div>
+          <div class="flex justify-between"><span>Габарит:</span><span id="lengthStatus" class="font-bold">—</span></div>
         </div>
       </div>
-
-      <div id="otherRegionWarning" class="hidden fade-in p-4 bg-amber-50 text-amber-900 text-xs rounded-xl border border-amber-100 text-center leading-relaxed font-medium">
-        Ми спеціалізуємось на Західній Україні. <br>
-        Доставка в інші регіони — від 10 000 грн.
-      </div>
-      <div id="errorBox" class="hidden fade-in p-3 bg-red-50 text-red-600 text-xs rounded-xl text-center border border-red-100 font-medium"></div>
     </div>
   </div>
 
   <script>
     const CONFIG = {
-      ratePerKm: 21, 
-      minPrice: {
-        'львівська': 3000, // ВСТАНОВЛЕНО 3000 ГРН
-        'волинська': 3500,
-        'рівненська': 6500,
-        'тернопільська': 3500,
-        'закарпатська': 4000
-      },
-      fees: { medium: 1000, heavy: 3000, long: 1500 },
-      zakarpattiaCoef: 1.2
+      ratePerKm: 21,
+      minPrice: { 'львівська': 3000, 'волинська': 5000, 'рівненська': 6500, 'тернопільська': 3500, 'закарпатська': 4000 },
+      fees: { weightMed: 1000, weightHeavy: 3000, negabarit: 3500 } // ЗБІЛЬШЕНО НАЦІНКУ ЗА НЕГАБАРИТ (6м)
     };
 
-    let mapService = null;
-    let autocomplete = null;
-
+    let mapService;
     function initMaps() {
       mapService = new google.maps.DistanceMatrixService();
       const input = document.getElementById("city");
-      autocomplete = new google.maps.places.Autocomplete(input, { componentRestrictions: { country: "ua" }, types: ['(cities)'] });
+      new google.maps.places.Autocomplete(input, { componentRestrictions: { country: "ua" }, types: ['(cities)'] });
       const btn = document.getElementById('calcBtn');
-      btn.disabled = false;
-      btn.innerHTML = "РОЗРАХУВАТИ";
+      btn.disabled = false; btn.innerHTML = "РОЗРАХУВАТИ";
     }
-    window.initMaps = initMaps;
-
-    function roundPrice(num) { return Math.ceil(num / 500) * 500; }
 
     async function calculateDelivery() {
-      const ui = {
-        city: document.getElementById('city'),
-        region: document.getElementById('region'),
-        weight: document.getElementById('weight'),
-        length: document.getElementById('length'),
-        result: document.getElementById('resultCard'),
-        price: document.getElementById('finalPrice'),
-        dist: document.getElementById('distDisplay'),
-        car: document.getElementById('carType'),
-        lenStat: document.getElementById('lengthStatus'),
-        err: document.getElementById('errorBox'),
-        otherWarn: document.getElementById('otherRegionWarning'),
-        btn: document.getElementById('calcBtn')
-      };
-
-      const data = { destCity: ui.city.value.trim(), region: ui.region.value, weight: parseFloat(ui.weight.value) || 0, length: parseFloat(ui.length.value) || 0 };
-      ui.err.classList.add('hidden'); ui.result.classList.add('hidden'); ui.otherWarn.classList.add('hidden');
-
-      if (!data.destCity || !data.region) { showError("Вкажіть місто та область."); return; }
-      if (data.region === 'other') { ui.otherWarn.classList.remove('hidden'); return; }
+      const ui = { city: document.getElementById('city'), region: document.getElementById('region'), weight: document.getElementById('weight'), length: document.getElementById('length'), result: document.getElementById('resultCard'), price: document.getElementById('finalPrice'), dist: document.getElementById('distDisplay'), lenStat: document.getElementById('lengthStatus'), btn: document.getElementById('calcBtn') };
+      
+      const val = { city: ui.city.value, region: ui.region.value, weight: parseFloat(ui.weight.value) || 0, length: parseFloat(ui.length.value) || 0 };
+      if (!val.city || !val.region) return;
 
       ui.btn.disabled = true;
-      ui.btn.innerHTML = `<span class="loader"></span> <span class="ml-2">РАХУЄМО...</span>`;
+      ui.btn.innerHTML = "РАХУЄМО...";
 
       try {
-        const destinationQuery = `${data.destCity}, ${data.region}, Україна`;
-        const distKm = await getDistance("Львів, Україна", destinationQuery);
+        const distKm = await new Promise((res, rej) => {
+          mapService.getDistanceMatrix({ origins: ["Львів"], destinations: [`${val.city}, ${val.region}`], travelMode: 'DRIVING' }, (r, s) => {
+            if (s === 'OK' && r.rows[0].elements[0].status === 'OK') res(r.rows[0].elements[0].distance.value / 1000); else rej();
+          });
+        });
 
-        let basePrice = distKm * CONFIG.ratePerKm;
-        let minPriceForRegion = CONFIG.minPrice[data.region] || 3000;
-        
-        let carLabel = "Легкий вантаж";
-        if (data.weight > 500 && data.weight <= 1000) { basePrice += CONFIG.fees.medium; carLabel = "Бус (до 1т)"; }
-        else if (data.weight > 1000) { basePrice += CONFIG.fees.heavy; carLabel = "Вантажівка (>1т)"; }
+        let price = distKm * CONFIG.ratePerKm;
+        const minArea = CONFIG.minPrice[val.region] || 3000;
 
-        if (basePrice < minPriceForRegion) basePrice = minPriceForRegion;
+        // Додатки за вагу
+        if (val.weight > 500 && val.weight <= 1000) price += CONFIG.fees.weightMed;
+        else if (val.weight > 1000) price += CONFIG.fees.weightHeavy;
 
-        if (data.length > 4.05) { basePrice += CONFIG.fees.long; ui.lenStat.textContent = "> 4м (Негабарит)"; ui.lenStat.className = "font-bold text-red-600"; }
-        else { ui.lenStat.textContent = "Стандарт"; ui.lenStat.className = "font-bold text-slate-700"; }
+        if (price < minArea) price = minArea;
 
-        if (data.region === 'закарпатська') {
-          if (distKm > 200 && data.weight > 500) basePrice *= CONFIG.zakarpattiaCoef;
-          if (basePrice < 4000) basePrice = 4000;
+        // Логіка для 6 метрів (Негабарит)
+        if (val.length > 4.05) {
+          price += CONFIG.fees.negabarit;
+          ui.lenStat.textContent = val.length >= 6 ? "6м (Критичний негабарит)" : "Негабарит > 4м";
+          ui.lenStat.className = "font-bold text-red-600";
+        } else {
+          ui.lenStat.textContent = "Стандарт";
+          ui.lenStat.className = "font-bold text-slate-700";
         }
 
-        ui.price.textContent = roundPrice(basePrice).toLocaleString('uk-UA') + " грн";
+        ui.price.textContent = (Math.ceil(price / 500) * 500).toLocaleString() + " грн";
         ui.dist.textContent = distKm.toFixed(0) + " км";
-        ui.car.textContent = carLabel;
         ui.result.classList.remove('hidden');
-      } catch (error) { showError("Помилка маршруту."); } finally { ui.btn.innerHTML = "РОЗРАХУВАТИ"; ui.btn.disabled = false; }
-
-      function showError(msg) { ui.err.textContent = msg; ui.err.classList.remove('hidden'); }
-    }
-
-    function getDistance(origin, dest) {
-      return new Promise((resolve, reject) => {
-        mapService.getDistanceMatrix({ origins: [origin], destinations: [dest], travelMode: 'DRIVING' }, (response, status) => {
-          if (status === 'OK' && response.rows[0].elements[0].status === 'OK') resolve(response.rows[0].elements[0].distance.value / 1000);
-          else reject(status);
-        });
-      });
+      } catch (e) { alert("Помилка розрахунку"); } finally { ui.btn.disabled = false; ui.btn.innerHTML = "РОЗРАХУВАТИ"; }
     }
 
     document.getElementById('calcBtn').addEventListener('click', calculateDelivery);
-    document.getElementById('resetBtn').addEventListener('click', () => { location.reload(); });
+    window.initMaps = initMaps;
   </script>
-  
   <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyDFR9n0yr9SEPDWGyH1G_dDJBit7bxvy_Y&libraries=places&callback=initMaps" async defer></script>
 </body>
 </html>
