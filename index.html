@@ -29,7 +29,7 @@
         
         <div>
           <label class="block text-[10px] font-black text-slate-400 uppercase mb-2 ml-1 tracking-widest">Куди (Місто чи Село)</label>
-          <input id="city" type="text" class="w-full bg-white border-2 border-slate-100 rounded-2xl px-5 py-4 text-sm outline-none focus:border-slate-900 transition-all placeholder:text-slate-300" placeholder="Введіть назву населеного пункту..." autocomplete="off" />
+          <input id="city" type="text" class="w-full bg-white border-2 border-slate-100 rounded-2xl px-5 py-4 text-sm outline-none focus:border-slate-900 transition-all placeholder:text-slate-300" placeholder="Введіть назву..." autocomplete="off" />
         </div>
 
         <div class="grid grid-cols-2 gap-4">
@@ -58,11 +58,11 @@
              <span id="distDisplay" class="font-black text-slate-900">0 км</span>
           </div>
           <div class="flex justify-between items-center text-xs">
-             <span class="text-slate-500 font-medium">Вантаж:</span>
-             <span id="weightLabel" class="font-black text-slate-900">—</span>
+             <span class="text-slate-500 font-medium">Область:</span>
+             <span id="regionLabel" class="font-black text-slate-900">—</span>
           </div>
           <div class="flex justify-between items-center text-xs">
-             <span class="text-slate-500 font-medium">Довжина:</span>
+             <span class="text-slate-500 font-medium">Габарит:</span>
              <span id="lengthStatus" class="font-black">—</span>
           </div>
         </div>
@@ -75,41 +75,36 @@
   <script>
     const CONFIG = {
       ratePerKm: 22,
-      // Мінімальні ціни по областях для малої ваги (до 500 кг)
       minPrices: {
-        'львівська': 2500, // ВАШ ЗАПИТ: 2500 грн для малої ваги
-        'волинська': 5000,
-        'рівненська': 6500,
-        'тернопільська': 3500,
-        'закарпатська': 4000
+        'львів': 2500,
+        'волин': 5000,
+        'рівн': 6500,
+        'терно': 3500,
+        'закар': 4000
       },
       fees: {
-        weightMed: 1500,   // 501-1000 кг
-        weightHeavy: 3000, // >1000 кг
-        longLoad: 2000,    // >4м
-        sixMeterBonus: 4500 // Спеціальна націнка за 6м (не габарит)
+        weightMed: 1500,
+        weightHeavy: 3000,
+        longLoad: 2000,
+        sixMeterBonus: 4500
       }
     };
 
     let mapService, autocomplete, selectedPlace = null;
 
     function initMaps() {
-      try {
-        mapService = new google.maps.DistanceMatrixService();
-        const input = document.getElementById("city");
-        autocomplete = new google.maps.places.Autocomplete(input, {
-          componentRestrictions: { country: "ua" },
-          types: ['(cities)'],
-          fields: ["address_components", "geometry", "formatted_address"]
-        });
+      mapService = new google.maps.DistanceMatrixService();
+      const input = document.getElementById("city");
+      autocomplete = new google.maps.places.Autocomplete(input, {
+        componentRestrictions: { country: "ua" },
+        types: ['(cities)'],
+        fields: ["address_components", "geometry", "formatted_address"]
+      });
 
-        autocomplete.addListener("place_changed", () => {
-          selectedPlace = autocomplete.getPlace();
-          document.getElementById('errorBox').classList.add('hidden');
-        });
-      } catch (e) {
-        console.error("API Error");
-      }
+      autocomplete.addListener("place_changed", () => {
+        selectedPlace = autocomplete.getPlace();
+        document.getElementById('errorBox').classList.add('hidden');
+      });
     }
 
     async function calculateDelivery() {
@@ -120,26 +115,42 @@
         result: document.getElementById('resultCard'),
         price: document.getElementById('finalPrice'),
         dist: document.getElementById('distDisplay'),
-        wLabel: document.getElementById('weightLabel'),
+        regionLab: document.getElementById('regionLabel'),
         lenStat: document.getElementById('lengthStatus'),
         err: document.getElementById('errorBox'),
         btn: document.getElementById('calcBtn')
       };
 
-      if (!selectedPlace || ui.cityInput.value === "") {
+      if (!selectedPlace || !ui.cityInput.value) {
         ui.err.textContent = "Оберіть населений пункт зі списку підказок";
         ui.err.classList.remove('hidden');
         return;
       }
 
-      ui.err.classList.add('hidden');
       ui.btn.disabled = true;
       ui.btn.innerHTML = `<span class="loader"></span>`;
 
-      let province = "";
-      selectedPlace.address_components.forEach(c => {
-        if (c.types.includes("administrative_area_level_1")) province = c.long_name.toLowerCase();
-      });
+      // НАДІЙНЕ ВИЗНАЧЕННЯ ОБЛАСТІ
+      let provinceLong = "Не визначено";
+      let provinceKey = "";
+      
+      if (selectedPlace.address_components) {
+        for (const component of selectedPlace.address_components) {
+          if (component.types.includes("administrative_area_level_1")) {
+            provinceLong = component.long_name;
+            const lowerName = provinceLong.toLowerCase();
+            
+            // Співставлення з нашими ключами мінімалок
+            if (lowerName.includes("львів") || lowerName.includes("lviv")) provinceKey = "львів";
+            else if (lowerName.includes("волин") || lowerName.includes("volyn")) provinceKey = "волин";
+            else if (lowerName.includes("рівн") || lowerName.includes("rivne")) provinceKey = "рівн";
+            else if (lowerName.includes("терно") || lowerName.includes("terno")) provinceKey = "терно";
+            else if (lowerName.includes("закар") || lowerName.includes("zakar")) provinceKey = "закар";
+          }
+        }
+      }
+
+      ui.regionLab.textContent = provinceLong;
 
       const w = parseFloat(ui.weight.value) || 0;
       const l = parseFloat(ui.length.value) || 0;
@@ -156,29 +167,29 @@
           });
         });
 
-        // Базова ціна за км
         let finalPrice = distKm * CONFIG.ratePerKm;
 
-        // 1. Додаток за вагу
-        if (w <= 500) {
-           ui.wLabel.textContent = "Мала вага (до 500кг)";
-        } else if (w <= 1000) {
-           finalPrice += CONFIG.fees.weightMed;
-           ui.wLabel.textContent = "Середня вага (до 1т)";
-        } else {
-           finalPrice += CONFIG.fees.weightHeavy;
-           ui.wLabel.textContent = "Велика вага (>1т)";
-        }
+        // 1. Вага
+        if (w > 500 && w <= 1000) finalPrice += CONFIG.fees.weightMed;
+        else if (w > 1000) finalPrice += CONFIG.fees.weightHeavy;
 
-        // 2. Перевірка мінімалки області (для 100кг це буде 2500 у Львівській обл)
-        let areaMin = 2500;
-        for (let key in CONFIG.minPrices) {
-          if (province.includes(key)) areaMin = CONFIG.minPrices[key];
-        }
-        
+        // 2. Мінімалка по визначеній області
+        let areaMin = CONFIG.minPrices[provinceKey] || 2500;
         if (finalPrice < areaMin) finalPrice = areaMin;
 
-        // 3. Додаток за довжину (6м - критичний негабарит)
+        // 3. Довжина
         if (l >= 6) {
           finalPrice += CONFIG.fees.sixMeterBonus;
-          ui.lenStat.textContent = "6м (Негабарит
+          ui.lenStat.textContent = "Негабарит (6м)";
+          ui.lenStat.className = "font-black text-red-600";
+        } else if (l > 4.05) {
+          finalPrice += CONFIG.fees.longLoad;
+          ui.lenStat.textContent = "Довгомір (>4м)";
+          ui.lenStat.className = "font-black text-orange-500";
+        } else {
+          ui.lenStat.textContent = "Стандарт";
+          ui.lenStat.className = "font-black text-green-600";
+        }
+
+        const rounded = Math.ceil(finalPrice / 500) * 500;
+        ui.price.textContent = rounded.toLocaleString('uk-UA') + "
