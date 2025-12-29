@@ -9,20 +9,13 @@
     .fade-in { animation: fadeIn 0.4s ease-out forwards; opacity: 0; transform: translateY(10px); }
     @keyframes fadeIn { to { opacity: 1; transform: translateY(0); } }
     .loader { border: 2px solid #f3f3f3; border-top: 2px solid #0f172a; border-radius: 50%; width: 18px; height: 18px; animation: spin 1s linear infinite; display: inline-block; }
-    @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
     
-    /* ВИПРАВЛЕННЯ: Робимо список Google Maps завжди видимим поверх всього */
+    /* Список підказок поверх всього */
     .pac-container {
       z-index: 10000 !important;
       border-radius: 0.5rem;
       margin-top: 4px;
       box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
-      font-family: inherit;
-    }
-    .pac-item {
-      padding: 10px;
-      font-size: 14px;
-      cursor: pointer;
     }
   </style>
 </head>
@@ -44,7 +37,7 @@
         <div>
           <label class="block text-[10px] font-black text-slate-400 uppercase mb-2 ml-1 tracking-widest">Куди (Місто чи Село)</label>
           <input id="city" type="text" class="w-full bg-white border-2 border-slate-100 rounded-2xl px-5 py-4 text-sm outline-none focus:border-slate-900 transition-all placeholder:text-slate-300" placeholder="Введіть назву та оберіть зі списку..." autocomplete="off" />
-          <p class="text-[10px] text-slate-400 mt-1 ml-1">💡 Обов'язково натисніть на підказку зі списку</p>
+          <p class="text-[10px] text-slate-400 mt-1 ml-1">💡 Оберіть населений пункт зі списку</p>
         </div>
 
         <div class="grid grid-cols-2 gap-4">
@@ -77,8 +70,8 @@
              <span id="regionLabel" class="font-black text-slate-900">—</span>
           </div>
           <div class="flex justify-between items-center text-xs">
-             <span class="text-slate-500 font-medium">Габарит:</span>
-             <span id="lengthStatus" class="font-black">—</span>
+             <span class="text-slate-500 font-medium">Вантаж:</span>
+             <span id="weightLabel" class="font-black text-slate-900">—</span>
           </div>
         </div>
       </div>
@@ -90,56 +83,45 @@
   <script>
     const CONFIG = {
       ratePerKm: 22,
+      // Базові мінімалки (Волинь тут обробляється окремо в коді)
       minPrices: {
         'львів': 2500,
-        'волин': 5000,
         'рівн': 6500,
         'терно': 3500,
         'закар': 4000
+        // 'волин' - видалено звідси, бо має динамічну логіку
       },
       fees: {
-        weightMed: 1500,
-        weightHeavy: 3000,
-        longLoad: 2000,
+        weightMed: 1500,   // 501-1000 кг
+        weightHeavy: 3000, // >1000 кг
+        longLoad: 2000,    // >4м
         sixMeterBonus: 4500
       }
     };
 
-    let mapService, autocomplete;
-    let selectedPlace = null; // Зберігаємо обране місце
+    let mapService, autocomplete, selectedPlace = null;
 
-    // Ця функція викликається автоматично, коли завантажиться скрипт Google Maps
     function initMaps() {
       console.log("Maps API Loaded");
       mapService = new google.maps.DistanceMatrixService();
-      
       const input = document.getElementById("city");
       
-      // Налаштування автозаповнення
       autocomplete = new google.maps.places.Autocomplete(input, {
         componentRestrictions: { country: "ua" },
-        // Прибираємо 'cities', щоб шукало все, але просимо геометрію
         fields: ["address_components", "geometry", "formatted_address"]
       });
 
-      // Слухаємо подію ВИБОРУ зі списку
       autocomplete.addListener("place_changed", () => {
         const place = autocomplete.getPlace();
-        
         if (!place.geometry) {
-          // Користувач ввів щось, але не обрав зі списку, або Google не знайшов деталей
           selectedPlace = null;
-          console.warn("Місце не має геометрії");
           return;
         }
-
         selectedPlace = place;
         document.getElementById('errorBox').classList.add('hidden');
         document.getElementById('city').classList.remove('border-red-500');
       });
     }
-
-    // Робимо функцію доступною глобально
     window.initMaps = initMaps;
 
     async function calculateDelivery() {
@@ -151,35 +133,32 @@
         price: document.getElementById('finalPrice'),
         dist: document.getElementById('distDisplay'),
         regionLab: document.getElementById('regionLabel'),
-        lenStat: document.getElementById('lengthStatus'),
+        wLabel: document.getElementById('weightLabel'),
         err: document.getElementById('errorBox'),
         btn: document.getElementById('calcBtn')
       };
 
-      // ПЕРЕВІРКА: Чи обрав користувач місто зі списку
       if (!selectedPlace || ui.cityInput.value === "") {
-        ui.err.innerHTML = "⚠️ <strong>Помилка:</strong><br>Почніть вводити назву міста і <br><u>обов'язково натисніть на варіант зі списку</u>.";
+        ui.err.innerHTML = "⚠️ <strong>Місто не обрано!</strong><br>Введіть назву та натисніть на варіант зі списку.";
         ui.err.classList.remove('hidden');
         ui.cityInput.classList.add('border-red-500');
         return;
       }
 
       ui.err.classList.add('hidden');
-      ui.cityInput.classList.remove('border-red-500');
       ui.btn.disabled = true;
-      ui.btn.innerHTML = `<span class="loader"></span> РАХУЄМО...`;
+      ui.btn.innerHTML = `<span class="loader"></span>`;
 
-      // Визначаємо область з компонентів адреси
+      // 1. Визначення області
       let provinceLong = "Не визначено";
       let provinceKey = "";
       
       if (selectedPlace.address_components) {
         for (const component of selectedPlace.address_components) {
           if (component.types.includes("administrative_area_level_1")) {
-            provinceLong = component.long_name; // Наприклад "Львівська область"
+            provinceLong = component.long_name;
             const lowerName = provinceLong.toLowerCase();
             
-            // Пошук ключа
             if (lowerName.includes("львів") || lowerName.includes("lviv")) provinceKey = "львів";
             else if (lowerName.includes("волин") || lowerName.includes("volyn")) provinceKey = "волин";
             else if (lowerName.includes("рівн") || lowerName.includes("rivne")) provinceKey = "рівн";
@@ -188,8 +167,7 @@
           }
         }
       }
-
-      ui.regionLab.textContent = provinceLong; // Показуємо користувачу, яку область ми знайшли
+      ui.regionLab.textContent = provinceLong;
 
       const w = parseFloat(ui.weight.value) || 0;
       const l = parseFloat(ui.length.value) || 0;
@@ -209,38 +187,71 @@
           });
         });
 
+        // 2. Базовий розрахунок
         let finalPrice = distKm * CONFIG.ratePerKm;
 
-        // 1. Вага
-        if (w > 500 && w <= 1000) finalPrice += CONFIG.fees.weightMed;
-        else if (w > 1000) finalPrice += CONFIG.fees.weightHeavy;
+        // 3. Вагові націнки
+        if (w <= 500) {
+           ui.wLabel.textContent = `Легкий вантаж (${w} кг)`;
+           ui.wLabel.className = "font-black text-green-600";
+        } else if (w <= 1000) {
+           finalPrice += CONFIG.fees.weightMed;
+           ui.wLabel.textContent = `До 1т (${w} кг)`;
+           ui.wLabel.className = "font-black text-slate-900";
+        } else {
+           finalPrice += CONFIG.fees.weightHeavy;
+           ui.wLabel.textContent = `Понад 1т (${w} кг)`;
+           ui.wLabel.className = "font-black text-slate-900";
+        }
 
-        // 2. Мінімалка по області
-        let areaMin = CONFIG.minPrices[provinceKey] || 2500;
-        if (finalPrice < areaMin) finalPrice = areaMin;
+        // 4. ВИЗНАЧЕННЯ МІНІМАЛКИ (ОСНОВНА ЛОГІКА ТУТ)
+        let activeMinPrice = 2500; // Стандартна мінімалка
 
-        // 3. Довжина
+        if (provinceKey === 'волин') {
+           // ЛОГІКА ДЛЯ ВОЛИНІ:
+           // Якщо до 175 км (Луцьк ~150 км) -> 2500
+           // Якщо далі -> 5000
+           if (distKm <= 175) {
+             activeMinPrice = 2500; 
+           } else {
+             activeMinPrice = 5000;
+           }
+        } else if (CONFIG.minPrices[provinceKey]) {
+           // Для інших областей беремо з конфіга (Рівне 6500 і т.д.)
+           activeMinPrice = CONFIG.minPrices[provinceKey];
+        }
+
+        // Для малої ваги (<500кг) в інших областях (окрім "далекої" Волині та інших спец тарифів)
+        // ми хочемо зберегти лояльну ціну, але якщо це далека поїздка, то ціна і так виросте через км.
+        // Єдине, що якщо користувач сказав "мала вага 2500", то ми не форсуємо 6500 для Рівного для 100кг?
+        // Попередній запит був "2500 мала вага".
+        // Якщо ми веземо 100кг в Рівне (200км * 22 = 4400), а мінімалка 6500, то вийде 6500.
+        // Якщо ви хочете, щоб для малої ваги ЗАВЖДИ було 2500 мінімалка, розкоментуйте рядок нижче:
+        
+        if (w <= 500) {
+           // Якщо вантаж легкий - ігноруємо високі порогові мінімалки, ставимо базову 2500.
+           // Ціна буде формуватися чисто від кілометражу (але не менше 2500).
+           activeMinPrice = 2500;
+        }
+
+        if (finalPrice < activeMinPrice) finalPrice = activeMinPrice;
+
+        // 5. Довжина (зверху мінімалки)
         if (l >= 6) {
           finalPrice += CONFIG.fees.sixMeterBonus;
-          ui.lenStat.textContent = "Негабарит (6м)";
-          ui.lenStat.className = "font-black text-red-600";
         } else if (l > 4.05) {
           finalPrice += CONFIG.fees.longLoad;
-          ui.lenStat.textContent = "Довгомір (>4м)";
-          ui.lenStat.className = "font-black text-orange-500";
-        } else {
-          ui.lenStat.textContent = "Стандарт";
-          ui.lenStat.className = "font-black text-green-600";
         }
 
         const rounded = Math.ceil(finalPrice / 500) * 500;
+        
         ui.price.textContent = rounded.toLocaleString('uk-UA') + " грн";
         ui.dist.textContent = distKm.toFixed(0) + " км";
         ui.result.classList.remove('hidden');
 
       } catch (e) {
-        console.error("Помилка:", e);
-        ui.err.innerHTML = "Не вдалося розрахувати маршрут.<br>Перевірте, чи працює ваш API ключ для Distance Matrix.";
+        console.error(e);
+        ui.err.innerHTML = "Помилка. Перевірте API ключ.";
         ui.err.classList.remove('hidden');
       } finally {
         ui.btn.disabled = false;
