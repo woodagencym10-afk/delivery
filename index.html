@@ -30,13 +30,6 @@
 
     <div class="p-8 space-y-6">
       
-      <div id="debugPanel" class="hidden bg-emerald-50 border-2 border-emerald-100 p-3 rounded-xl text-[10px] font-mono text-emerald-900 mb-4">
-        <div class="flex justify-between">
-          <span>Зона: <strong id="dbgZone">-</strong></span>
-          <span>Км: <strong id="dbgDist">-</strong></span>
-        </div>
-      </div>
-
       <div class="space-y-4">
         <div>
            <label class="block text-[10px] font-black text-slate-400 uppercase mb-2 ml-1 tracking-widest">Звідки</label>
@@ -95,7 +88,7 @@
     const CONFIG = {
       rateStandard: 22,   
       rateLight: 16,      
-      rateFarVolyn: 29, // Тільки для важких вантажів!
+      rateFarVolyn: 29,   
 
       minPricesDefault: {
         'львів': 2500,
@@ -139,8 +132,7 @@
         length: document.getElementById('length'), result: document.getElementById('resultCard'),
         price: document.getElementById('finalPrice'), dist: document.getElementById('distDisplay'),
         regionLab: document.getElementById('regionLabel'), wLabel: document.getElementById('weightLabel'),
-        err: document.getElementById('errorBox'), btn: document.getElementById('calcBtn'),
-        dbgPanel: document.getElementById('debugPanel'), dbgZone: document.getElementById('dbgZone'), dbgDist: document.getElementById('dbgDist')
+        err: document.getElementById('errorBox'), btn: document.getElementById('calcBtn')
       };
 
       if (!selectedPlace || ui.cityInput.value === "") {
@@ -197,43 +189,38 @@
         let finalPrice = 0;
         let activeMinPrice = 2500;
         let rate = CONFIG.rateStandard;
-        let zoneDebug = "";
 
         if (provinceKey === 'волин') {
             
+            // Якщо є в білому списку АБО відстань нормальна (до 235 км)
             if (isForcedCloseVolyn || distKm <= 235) {
-               // БЛИЖНЯ ВОЛИНЬ (Луцьк, Волошки)
-               zoneDebug = "Ближня (2500/3500)";
-               
+               // --- БЛИЖНЯ ВОЛИНЬ (3500) ---
                rate = (w <= 500) ? CONFIG.rateLight : CONFIG.rateStandard;
                finalPrice = distKm * rate;
 
                activeMinPrice = isLutsk ? 2500 : 3500;
-
+               
                if (w > 500 && w <= 1000) finalPrice += CONFIG.fees.weightMed;
                else if (w > 1000) finalPrice += CONFIG.fees.weightHeavy;
                
                ui.wLabel.textContent = w <= 500 ? "Легкий вантаж" : "Важкий вантаж";
 
             } else {
-               // ДАЛЕКА ВОЛИНЬ (Ратне)
-               activeMinPrice = 5500; // Мінімалка 5500
+               // --- ДАЛЕКА ВОЛИНЬ (5500) ---
+               activeMinPrice = 5500; // НОВА МІНІМАЛКА
 
                if (w <= 500) {
-                 // МАЛА ВАГА -> дешевий тариф, щоб впасти на мінімалку 5500
-                 rate = CONFIG.rateLight; // 16 грн/км
-                 zoneDebug = "Далека Легка (5500)";
+                 // Легка вага -> Тариф 16 -> (240*16 = 3840) -> підтягуємо до 5500
+                 rate = CONFIG.rateLight; 
                  ui.wLabel.textContent = "Легкий вантаж (Далеко)";
                } else {
-                 // ВЕЛИКА ВАГА -> дорогий тариф
-                 rate = CONFIG.rateFarVolyn; // 29 грн/км
-                 zoneDebug = "Далека Важка (7000+)";
+                 // Важка вага -> Тариф 29
+                 rate = CONFIG.rateFarVolyn; 
                  ui.wLabel.textContent = "Важкий вантаж (Далеко)";
                }
                
                finalPrice = distKm * rate;
                
-               // Додаткові збори тільки для важких
                if (w > 500) {
                  if (w <= 1000) finalPrice += CONFIG.fees.weightMed;
                  else finalPrice += CONFIG.fees.weightHeavy;
@@ -242,7 +229,6 @@
 
         } else {
             // ІНШІ ОБЛАСТІ
-            zoneDebug = "Інша";
             rate = (w <= 500) ? CONFIG.rateLight : CONFIG.rateStandard;
             finalPrice = distKm * rate;
             ui.wLabel.textContent = w <= 500 ? "Легкий вантаж" : "Важкий вантаж";
@@ -262,11 +248,6 @@
 
         if (l >= 6) finalPrice += CONFIG.fees.sixMeterBonus;
         else if (l > 4.05) finalPrice += CONFIG.fees.longLoad;
-
-        // DEBUG
-        ui.dbgZone.textContent = zoneDebug;
-        ui.dbgDist.textContent = distKm.toFixed(1) + " км";
-        ui.dbgPanel.classList.remove('hidden');
 
         const rounded = Math.ceil(finalPrice / 500) * 500;
         ui.price.textContent = rounded.toLocaleString('uk-UA') + " грн";
