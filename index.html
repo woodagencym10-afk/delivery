@@ -10,11 +10,12 @@
     @keyframes fadeIn { to { opacity: 1; transform: translateY(0); } }
     .loader { border: 2px solid #f3f3f3; border-top: 2px solid #0f172a; border-radius: 50%; width: 18px; height: 18px; animation: spin 1s linear infinite; display: inline-block; }
     
+    /* Список підказок: поверх усього + тінь + відступ */
     .pac-container {
       z-index: 99999 !important;
       border-radius: 0.75rem;
       margin-top: 8px;
-      box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+      box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
       border: 1px solid #e2e8f0;
       font-family: inherit;
     }
@@ -24,6 +25,7 @@
       cursor: pointer;
       border-top: 1px solid #f1f5f9;
     }
+    .pac-item:first-child { border-top: none; }
     .pac-item:hover { background-color: #f8fafc; }
   </style>
 </head>
@@ -46,7 +48,7 @@
           <label class="block text-[10px] font-black text-slate-400 uppercase mb-2 ml-1 tracking-widest">Куди (Місто чи Село)</label>
           <input id="city" type="text" class="w-full bg-white border-2 border-slate-100 rounded-2xl px-5 py-4 text-sm outline-none focus:border-slate-900 transition-all placeholder:text-slate-300" placeholder="Почніть вводити назву..." autocomplete="off" />
           <p class="text-[10px] text-slate-400 mt-1 ml-1 flex items-center gap-1">
-            👇 Оберіть зі списку підказок
+            👇 Натисніть на підказку зі списку
           </p>
         </div>
 
@@ -93,23 +95,24 @@
   <script>
     const CONFIG = {
       // ТАРИФНА СІТКА
-      rateStandard: 22,   
-      rateLight: 16,      
-      rateFarVolyn: 29,   
+      rateStandard: 22,   // Звичайний
+      rateLight: 16,      // Для малої ваги (дозволяє ціні не "влітати" в космос на середніх дистанціях)
+      rateFarVolyn: 29,   // Далека Волинь (Ратне)
 
-      // МІНІМАЛКИ ДЛЯ ІНШИХ ОБЛАСТЕЙ
+      // МІНІМАЛКИ ПО ОБЛАСТЯХ
       minPricesDefault: {
-        'львів': 2500,
+        'львів': 2500, // Мала вага - 2500
         'рівн': 6500,
         'терно': 3500,
         'закар': 4000
+        // Волинь налаштована окремо в коді
       },
       
       fees: {
-        weightMed: 1500,   
-        weightHeavy: 3000, 
-        longLoad: 2000,    
-        sixMeterBonus: 4500 
+        weightMed: 1500,   // 501-1000 кг
+        weightHeavy: 3000, // >1000 кг
+        longLoad: 2000,    // >4м
+        sixMeterBonus: 4500 // >6м (спецтранспорт)
       }
     };
 
@@ -184,7 +187,7 @@
           }
         }
       }
-      ui.regionLab.textContent = provinceLong;
+      ui.regionLab.textContent = provinceLong; 
 
       const w = parseFloat(ui.weight.value) || 0;
       const l = parseFloat(ui.length.value) || 0;
@@ -213,20 +216,18 @@
         // --- ВОЛИНСЬКА ОБЛАСТЬ ---
         if (provinceKey === 'волин') {
             
-            // ЗБІЛЬШЕНИЙ ЛІМІТ ДЛЯ "БЛИЖНЬОЇ" ВОЛИНІ: 215 км
-            // Це дозволяє Волошкам (які можуть бути ~205 км) залишитися в категорії 3500
-            
-            if (distKm > 215) {
-               // ДАЛЕКА ВОЛИНЬ (Ратне, Любешів)
-               rate = CONFIG.rateFarVolyn; // Високий тариф
-               activeMinPrice = 5000;      // Висока мінімалка
+            // ТУТ ЗМІНЕНО ЛІМІТ НА 235 КМ, ЩОБ ВОЛОШКИ ПОТРАПИЛИ В "БЛИЖНЮ" ЗОНУ
+            if (distKm > 235) {
+               // ДАЛЕКА ВОЛИНЬ (> 235 км, наприклад Ратне)
+               rate = CONFIG.rateFarVolyn;
+               activeMinPrice = 5000;
                finalPrice = distKm * rate;
                ui.wLabel.textContent = "Далека відстань";
 
             } else {
-               // БЛИЖНЯ ВОЛИНЬ (Луцьк, Павлівка, Волошки)
+               // БЛИЖНЯ ВОЛИНЬ (<= 235 км, наприклад Волошки, Павлівка, Луцьк)
                
-               // Тариф залежить від ваги
+               // Тариф
                rate = (w <= 500) ? CONFIG.rateLight : CONFIG.rateStandard;
                finalPrice = distKm * rate;
 
