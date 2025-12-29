@@ -32,7 +32,7 @@
       
       <div id="debugPanel" class="hidden bg-slate-50 border-2 border-slate-200 p-3 rounded-xl text-[10px] font-mono text-slate-600 mb-4">
         <div class="flex justify-between">
-          <span>Тариф: <strong id="dbgZone">-</strong></span>
+          <span>Зона: <strong id="dbgZone">-</strong></span>
           <span>Км: <strong id="dbgDist">-</strong></span>
         </div>
         <div class="mt-1 text-xs text-slate-800" id="dbgCalc"></div>
@@ -56,8 +56,8 @@
           </div>
           <div>
             <label class="block text-[10px] font-black text-slate-400 uppercase mb-2 ml-1 tracking-widest">Довжина (м)</label>
-            <input id="length" type="number" step="0.1" class="w-full bg-white border-2 border-slate-100 rounded-2xl px-5 py-4 text-sm outline-none focus:border-slate-900 transition-all" placeholder="Напр. 6" />
-            <p class="text-[9px] text-slate-400 mt-1 ml-1 text-right">⚠️ >6м = +2500грн</p>
+            <input id="length" type="number" step="0.1" max="6" class="w-full bg-white border-2 border-slate-100 rounded-2xl px-5 py-4 text-sm outline-none focus:border-slate-900 transition-all" placeholder="Макс. 6" />
+            <p class="text-[9px] text-slate-400 mt-1 ml-1 text-right">⚠️ Максимум 6 метрів</p>
           </div>
         </div>
       </div>
@@ -100,7 +100,7 @@
         weightMed: 1500, 
         weightHeavy: 3000, 
         longLoad: 2000, 
-        sixMeterBonus: 2500 // ТУТ ЗМІНЕНО НА 2500
+        sixMeterBonus: 3500 
       }
     };
 
@@ -148,6 +148,15 @@
       }
 
       ui.err.classList.add('hidden');
+      
+      // ПЕРЕВІРКА ДОВЖИНИ (Жорстке обмеження)
+      const l = parseFloat(ui.length.value) || 0;
+      if (l > 6) {
+        ui.err.innerHTML = "⛔ <strong>Ми не возимо вантажі довші за 6 метрів!</strong><br>Будь ласка, введіть коректну довжину.";
+        ui.err.classList.remove('hidden');
+        return;
+      }
+
       ui.btn.disabled = true;
       ui.btn.innerHTML = `<span class="loader"></span>`;
 
@@ -177,7 +186,6 @@
       ui.regionLab.textContent = provinceLong;
 
       const w = parseFloat(ui.weight.value) || 0;
-      const l = parseFloat(ui.length.value) || 0;
 
       try {
         const distKm = await new Promise((res, rej) => {
@@ -198,23 +206,19 @@
         let zoneDebug = "";
 
         if (provinceKey === 'волин') {
-            
             if (isForcedCloseVolyn || distKm <= 235) {
-               // --- БЛИЖНЯ ВОЛИНЬ ---
+               // БЛИЖНЯ ВОЛИНЬ
                zoneDebug = "Ближня Волинь";
                rate = (w <= 500) ? CONFIG.rateLight : CONFIG.rateStandard;
                finalPrice = distKm * rate;
                activeMinPrice = isLutsk ? 2500 : 3500;
-               
                if (w > 500 && w <= 1000) finalPrice += CONFIG.fees.weightMed;
                else if (w > 1000) finalPrice += CONFIG.fees.weightHeavy;
-               
                ui.wLabel.textContent = w <= 500 ? "Легкий вантаж" : "Важкий вантаж";
             } else {
-               // --- ДАЛЕКА ВОЛИНЬ ---
+               // ДАЛЕКА ВОЛИНЬ
                zoneDebug = "Далека Волинь";
-               activeMinPrice = 5500; // МІНІМАЛКА
-
+               activeMinPrice = 5500; 
                if (w <= 500) {
                  rate = CONFIG.rateLight; 
                  ui.wLabel.textContent = "Легкий вантаж (Далеко)";
@@ -222,21 +226,18 @@
                  rate = CONFIG.rateFarVolyn; 
                  ui.wLabel.textContent = "Важкий вантаж (Далеко)";
                }
-               
                finalPrice = distKm * rate;
-               
                if (w > 500) {
                  if (w <= 1000) finalPrice += CONFIG.fees.weightMed;
                  else finalPrice += CONFIG.fees.weightHeavy;
                }
             }
         } else {
-            // ІНШІ ОБЛАСТІ
+            // ІНШІ
             zoneDebug = "Інша область";
             rate = (w <= 500) ? CONFIG.rateLight : CONFIG.rateStandard;
             finalPrice = distKm * rate;
             ui.wLabel.textContent = w <= 500 ? "Легкий вантаж" : "Важкий вантаж";
-
             if (w > 500 && w <= 1000) finalPrice += CONFIG.fees.weightMed;
             else if (w > 1000) finalPrice += CONFIG.fees.weightHeavy;
             
@@ -253,7 +254,8 @@
         let extraFee = 0;
         
         if (l >= 6) {
-          extraFee = CONFIG.fees.sixMeterBonus; // 2500 грн
+          // Якщо 6 метрів (більше 6 ми відсікли на старті)
+          extraFee = CONFIG.fees.sixMeterBonus; // 3500 грн
           ui.dist.innerText = distKm.toFixed(0) + " км (Спецтранспорт)";
           ui.dist.className = "font-black text-red-600";
         } else if (l > 4.05) {
