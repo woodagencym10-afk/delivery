@@ -30,14 +30,10 @@
 
     <div class="p-8 space-y-6">
       
-      <div id="debugPanel" class="hidden bg-indigo-50 border-2 border-indigo-100 p-3 rounded-xl text-[10px] font-mono text-indigo-900 mb-4">
+      <div id="debugPanel" class="hidden bg-emerald-50 border-2 border-emerald-100 p-3 rounded-xl text-[10px] font-mono text-emerald-900 mb-4">
         <div class="flex justify-between">
-          <span>Місто: <strong id="dbgCity">-</strong></span>
           <span>Зона: <strong id="dbgZone">-</strong></span>
-        </div>
-        <div class="flex justify-between mt-1">
           <span>Км: <strong id="dbgDist">-</strong></span>
-          <span>Тариф: <strong id="dbgRate">-</strong></span>
         </div>
       </div>
 
@@ -99,7 +95,7 @@
     const CONFIG = {
       rateStandard: 22,   
       rateLight: 16,      
-      rateFarVolyn: 29,   
+      rateFarVolyn: 29, // Тільки для важких вантажів!
 
       minPricesDefault: {
         'львів': 2500,
@@ -111,17 +107,11 @@
       fees: { weightMed: 1500, weightHeavy: 3000, longLoad: 2000, sixMeterBonus: 4500 }
     };
 
-    // БІЛИЙ СПИСОК (Примусова "Ближня Волинь" -> 3500 або 2500)
-    // Шукаємо ці слова у всій адресі, щоб точно спіймати "с. Волошки"
+    // БІЛИЙ СПИСОК (Примусова ціна 3500 або 2500)
     const closeVolynKeywords = [
-      "луцьк", "lutsk", 
-      "володимир", "volodymyr", 
-      "ковель", "kovel", 
-      "павлівка", "pavlivka", 
-      "волошки", "voloshky",
-      "горохів", "horokhiv",
-      "нововолинськ", "novovolynsk",
-      "торчин", "torchyn"
+      "луцьк", "lutsk", "володимир", "volodymyr", "ковель", "kovel", 
+      "павлівка", "pavlivka", "волошки", "voloshky", "горохів", "horokhiv",
+      "нововолинськ", "novovolynsk", "торчин", "torchyn"
     ];
 
     let mapService, autocomplete, selectedPlace = null;
@@ -150,12 +140,7 @@
         price: document.getElementById('finalPrice'), dist: document.getElementById('distDisplay'),
         regionLab: document.getElementById('regionLabel'), wLabel: document.getElementById('weightLabel'),
         err: document.getElementById('errorBox'), btn: document.getElementById('calcBtn'),
-        // Debug
-        dbgPanel: document.getElementById('debugPanel'),
-        dbgCity: document.getElementById('dbgCity'),
-        dbgZone: document.getElementById('dbgZone'),
-        dbgDist: document.getElementById('dbgDist'),
-        dbgRate: document.getElementById('dbgRate')
+        dbgPanel: document.getElementById('debugPanel'), dbgZone: document.getElementById('dbgZone'), dbgDist: document.getElementById('dbgDist')
       };
 
       if (!selectedPlace || ui.cityInput.value === "") {
@@ -168,21 +153,15 @@
       ui.btn.disabled = true;
       ui.btn.innerHTML = `<span class="loader"></span>`;
 
-      // 1. Аналіз адреси
+      // 1. Аналіз
       let provinceLong = "Не визначено";
       let provinceKey = "";
-      
       const fullAddress = (selectedPlace.formatted_address || "").toLowerCase();
       const nameOnly = (selectedPlace.name || "").toLowerCase();
       
-      // Перевірка на Луцьк
-      const isLutsk = fullAddress.includes("луцьк") || fullAddress.includes("lutsk") || nameOnly.includes("луцьк");
-      
-      // Перевірка на Ближню Волинь (Білий список)
+      const isLutsk = fullAddress.includes("луцьк") || nameOnly.includes("луцьк");
       let isForcedCloseVolyn = false;
-      closeVolynKeywords.forEach(k => {
-        if (fullAddress.includes(k) || nameOnly.includes(k)) isForcedCloseVolyn = true;
-      });
+      closeVolynKeywords.forEach(k => { if (fullAddress.includes(k) || nameOnly.includes(k)) isForcedCloseVolyn = true; });
 
       if (selectedPlace.address_components) {
         for (const c of selectedPlace.address_components) {
@@ -222,37 +201,47 @@
 
         if (provinceKey === 'волин') {
             
-            // Якщо є в білому списку АБО відстань нормальна (до 235 км)
             if (isForcedCloseVolyn || distKm <= 235) {
-               // --- БЛИЖНЯ ВОЛИНЬ ---
-               zoneDebug = "Ближня (3500/2500)";
+               // БЛИЖНЯ ВОЛИНЬ (Луцьк, Волошки)
+               zoneDebug = "Ближня (2500/3500)";
                
                rate = (w <= 500) ? CONFIG.rateLight : CONFIG.rateStandard;
                finalPrice = distKm * rate;
 
-               if (isLutsk) {
-                 activeMinPrice = 2500;
-               } else {
-                 activeMinPrice = 3500; 
-               }
-               
+               activeMinPrice = isLutsk ? 2500 : 3500;
+
                if (w > 500 && w <= 1000) finalPrice += CONFIG.fees.weightMed;
                else if (w > 1000) finalPrice += CONFIG.fees.weightHeavy;
                
                ui.wLabel.textContent = w <= 500 ? "Легкий вантаж" : "Важкий вантаж";
 
             } else {
-               // --- ДАЛЕКА ВОЛИНЬ (5500 грн) ---
-               zoneDebug = "Далека (5500)";
+               // ДАЛЕКА ВОЛИНЬ (Ратне)
+               activeMinPrice = 5500; // Мінімалка 5500
+
+               if (w <= 500) {
+                 // МАЛА ВАГА -> дешевий тариф, щоб впасти на мінімалку 5500
+                 rate = CONFIG.rateLight; // 16 грн/км
+                 zoneDebug = "Далека Легка (5500)";
+                 ui.wLabel.textContent = "Легкий вантаж (Далеко)";
+               } else {
+                 // ВЕЛИКА ВАГА -> дорогий тариф
+                 rate = CONFIG.rateFarVolyn; // 29 грн/км
+                 zoneDebug = "Далека Важка (7000+)";
+                 ui.wLabel.textContent = "Важкий вантаж (Далеко)";
+               }
                
-               rate = CONFIG.rateFarVolyn;
-               activeMinPrice = 5500; // НОВА МІНІМАЛКА 5500
                finalPrice = distKm * rate;
-               ui.wLabel.textContent = "Далека відстань";
+               
+               // Додаткові збори тільки для важких
+               if (w > 500) {
+                 if (w <= 1000) finalPrice += CONFIG.fees.weightMed;
+                 else finalPrice += CONFIG.fees.weightHeavy;
+               }
             }
 
         } else {
-            // --- ІНШІ ---
+            // ІНШІ ОБЛАСТІ
             zoneDebug = "Інша";
             rate = (w <= 500) ? CONFIG.rateLight : CONFIG.rateStandard;
             finalPrice = distKm * rate;
@@ -274,11 +263,9 @@
         if (l >= 6) finalPrice += CONFIG.fees.sixMeterBonus;
         else if (l > 4.05) finalPrice += CONFIG.fees.longLoad;
 
-        // DEBUG FILL
-        ui.dbgCity.textContent = selectedPlace.name;
+        // DEBUG
         ui.dbgZone.textContent = zoneDebug;
         ui.dbgDist.textContent = distKm.toFixed(1) + " км";
-        ui.dbgRate.textContent = rate + " грн/км";
         ui.dbgPanel.classList.remove('hidden');
 
         const rounded = Math.ceil(finalPrice / 500) * 500;
