@@ -10,19 +10,23 @@
     @keyframes fadeIn { to { opacity: 1; transform: translateY(0); } }
     .loader { border: 2px solid #f3f3f3; border-top: 2px solid #0f172a; border-radius: 50%; width: 18px; height: 18px; animation: spin 1s linear infinite; display: inline-block; }
     
-    /* Список підказок завжди зверху і має тінь */
+    /* Список підказок: поверх усього + тінь + відступ */
     .pac-container {
       z-index: 99999 !important;
-      border-radius: 0.5rem;
-      margin-top: 5px;
-      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.2);
+      border-radius: 0.75rem;
+      margin-top: 8px;
+      box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
       border: 1px solid #e2e8f0;
+      font-family: inherit;
     }
     .pac-item {
-      padding: 10px 15px;
+      padding: 12px 16px;
       font-size: 14px;
       cursor: pointer;
+      border-top: 1px solid #f1f5f9;
     }
+    .pac-item:first-child { border-top: none; }
+    .pac-item:hover { background-color: #f8fafc; }
   </style>
 </head>
 <body class="bg-slate-100 font-sans min-h-screen flex items-center justify-center p-4">
@@ -42,8 +46,10 @@
         
         <div class="relative">
           <label class="block text-[10px] font-black text-slate-400 uppercase mb-2 ml-1 tracking-widest">Куди (Місто чи Село)</label>
-          <input id="city" type="text" class="w-full bg-white border-2 border-slate-100 rounded-2xl px-5 py-4 text-sm outline-none focus:border-slate-900 transition-all placeholder:text-slate-300" placeholder="Введіть назву..." autocomplete="off" />
-          <p class="text-[10px] text-slate-400 mt-1 ml-1">👇 Оберіть зі списку підказок</p>
+          <input id="city" type="text" class="w-full bg-white border-2 border-slate-100 rounded-2xl px-5 py-4 text-sm outline-none focus:border-slate-900 transition-all placeholder:text-slate-300" placeholder="Почніть вводити назву..." autocomplete="off" />
+          <p class="text-[10px] text-slate-400 mt-1 ml-1 flex items-center gap-1">
+            👇 Натисніть на підказку зі списку
+          </p>
         </div>
 
         <div class="grid grid-cols-2 gap-4">
@@ -72,7 +78,7 @@
              <span id="distDisplay" class="font-black text-slate-900">0 км</span>
           </div>
           <div class="flex justify-between items-center text-xs">
-             <span class="text-slate-500 font-medium">Регіон:</span>
+             <span class="text-slate-500 font-medium">Область:</span>
              <span id="regionLabel" class="font-black text-slate-900">—</span>
           </div>
           <div class="flex justify-between items-center text-xs">
@@ -88,24 +94,25 @@
 
   <script>
     const CONFIG = {
-      // ТАРИФИ
+      // ТАРИФНА СІТКА
       rateStandard: 22,   // Звичайний
-      rateLight: 16,      // Для малої ваги (дозволяє Луцьку бути 2500, а Володимиру 3500)
-      rateFarVolyn: 29,   // Далека Волинь
+      rateLight: 16,      // Для малої ваги (дозволяє ціні не "влітати" в космос на середніх дистанціях)
+      rateFarVolyn: 29,   // Далека Волинь (Ратне)
 
-      // Мінімалки для інших областей
-      minPricesStandard: {
-        'львів': 2500,
+      // МІНІМАЛКИ ПО ОБЛАСТЯХ
+      minPricesDefault: {
+        'львів': 2500, // Мала вага - 2500
         'рівн': 6500,
         'терно': 3500,
         'закар': 4000
+        // Волинь налаштована окремо в коді
       },
       
       fees: {
-        weightMed: 1500,   
-        weightHeavy: 3000, 
-        longLoad: 2000,    
-        sixMeterBonus: 4500
+        weightMed: 1500,   // 501-1000 кг
+        weightHeavy: 3000, // >1000 кг
+        longLoad: 2000,    // >4м
+        sixMeterBonus: 4500 // >6м (спецтранспорт)
       }
     };
 
@@ -149,7 +156,7 @@
       };
 
       if (!selectedPlace || ui.cityInput.value === "") {
-        ui.err.innerHTML = "⚠️ <strong>Місто не обрано!</strong><br>Введіть назву та оберіть зі списку.";
+        ui.err.innerHTML = "⚠️ <strong>Увага!</strong><br>Почніть вводити назву і натисніть на варіант зі списку.";
         ui.err.classList.remove('hidden');
         ui.cityInput.classList.add('border-red-500');
         return;
@@ -164,7 +171,6 @@
       let provinceKey = "";
       
       const cityName = selectedPlace.name ? selectedPlace.name.toLowerCase() : "";
-      // Перевірка чи це саме Луцьк (для спецціни)
       const isLutsk = cityName.includes("луцьк") || cityName.includes("lutsk");
       
       if (selectedPlace.address_components) {
@@ -181,7 +187,7 @@
           }
         }
       }
-      ui.regionLab.textContent = provinceLong;
+      ui.regionLab.textContent = provinceLong; // Показуємо область користувачу
 
       const w = parseFloat(ui.weight.value) || 0;
       const l = parseFloat(ui.length.value) || 0;
@@ -201,66 +207,70 @@
           });
         });
 
-        // ================= ЛОГІКА РОЗРАХУНКУ =================
+        // ================= ЛОГІКА ЦІНИ =================
         
         let finalPrice = 0;
         let activeMinPrice = 2500;
         let rate = CONFIG.rateStandard;
 
-        // --- ВОЛИНЬ ---
+        // --- ВОЛИНСЬКА ОБЛАСТЬ ---
         if (provinceKey === 'волин') {
             
-            // 1. ДАЛЕКА ВОЛИНЬ (> 200 км: Ратне, Любешів)
+            // 1. ДАЛЕКА ВОЛИНЬ (>200 км: Ратне, Любешів)
             if (distKm > 200) {
-               rate = CONFIG.rateFarVolyn; // 29 грн
+               rate = CONFIG.rateFarVolyn;
                activeMinPrice = 5000;
                finalPrice = distKm * rate;
                ui.wLabel.textContent = "Далека відстань";
-
-            } else {
-               // 2. БЛИЖНЯ ВОЛИНЬ (<= 200 км: Луцьк, Павлівка, Володимир, Волошки)
-               
-               // Визначаємо тариф
-               if (w <= 500) {
-                  rate = CONFIG.rateLight; // 16 грн/км
-                  ui.wLabel.textContent = `Легкий вантаж`;
-               } else {
-                  rate = CONFIG.rateStandard; // 22 грн/км
-                  ui.wLabel.textContent = `Важкий вантаж`;
-               }
-               
+            } 
+            // 2. БЛИЖНЯ ВОЛИНЬ (<=200 км: Луцьк, Павлівка, Волошки)
+            else {
+               // Тариф
+               rate = (w <= 500) ? CONFIG.rateLight : CONFIG.rateStandard;
                finalPrice = distKm * rate;
 
-               // Визначаємо мінімалку
+               // МІНІМАЛКА
                if (isLutsk) {
-                 activeMinPrice = 2500; // ТІЛЬКИ ЛУЦЬК
+                 activeMinPrice = 2500; // Тільки Луцьк
                } else {
-                 activeMinPrice = 3500; // ВОЛОДИМИР, ПАВЛІВКА, ВОЛОШКИ
+                 activeMinPrice = 3500; // Павлівка, Волошки, Ковель
                }
 
-               // Додатки за вагу
+               // Вага
                if (w > 500 && w <= 1000) finalPrice += CONFIG.fees.weightMed;
                else if (w > 1000) finalPrice += CONFIG.fees.weightHeavy;
+               
+               ui.wLabel.textContent = w <= 500 ? "Легкий вантаж" : "Важкий вантаж";
             }
 
         } else {
             // --- ІНШІ ОБЛАСТІ ---
+            
             if (w <= 500) {
+               // Легка вага
                rate = CONFIG.rateLight;
-               activeMinPrice = 2500;
+               activeMinPrice = 2500; 
                ui.wLabel.textContent = "Легкий вантаж";
             } else {
+               // Важка вага
                rate = CONFIG.rateStandard;
                ui.wLabel.textContent = "Важкий вантаж";
             }
-            
+
             finalPrice = distKm * rate;
 
+            // Доплати за вагу
             if (w > 500 && w <= 1000) finalPrice += CONFIG.fees.weightMed;
             else if (w > 1000) finalPrice += CONFIG.fees.weightHeavy;
             
-            if (CONFIG.minPricesStandard[provinceKey]) {
-                activeMinPrice = CONFIG.minPricesStandard[provinceKey];
+            // Специфічні мінімалки для областей
+            if (CONFIG.minPricesDefault[provinceKey]) {
+                // Якщо вага мала - беремо базову 2500, якщо велика - можна брати більшу?
+                // Залишаємо логіку: для Рівного 6500 завжди.
+                if (provinceKey === 'рівн') activeMinPrice = 6500;
+                else if (provinceKey === 'терно') activeMinPrice = 3500;
+                else if (provinceKey === 'закар') activeMinPrice = 4000;
+                else activeMinPrice = 2500; // Львів
             }
         }
 
@@ -268,18 +278,23 @@
         if (finalPrice < activeMinPrice) finalPrice = activeMinPrice;
 
         // Габарити (6м)
-        if (l >= 6) finalPrice += CONFIG.fees.sixMeterBonus;
-        else if (l > 4.05) finalPrice += CONFIG.fees.longLoad;
+        if (l >= 6) {
+          finalPrice += CONFIG.fees.sixMeterBonus;
+          ui.dist.innerText = distKm.toFixed(0) + " км (Спецтранспорт)";
+        } else if (l > 4.05) {
+          finalPrice += CONFIG.fees.longLoad;
+        }
 
         const rounded = Math.ceil(finalPrice / 500) * 500;
         
         ui.price.textContent = rounded.toLocaleString('uk-UA') + " грн";
-        ui.dist.textContent = distKm.toFixed(0) + " км";
+        if (l < 6) ui.dist.textContent = distKm.toFixed(0) + " км";
+        
         ui.result.classList.remove('hidden');
 
       } catch (e) {
         console.error(e);
-        ui.err.innerHTML = "Помилка API.";
+        ui.err.innerHTML = "Помилка. Спробуйте оновити сторінку.";
         ui.err.classList.remove('hidden');
       } finally {
         ui.btn.disabled = false;
