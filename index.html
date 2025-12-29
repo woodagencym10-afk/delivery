@@ -30,6 +30,14 @@
 
     <div class="p-8 space-y-6">
       
+      <div id="debugPanel" class="hidden bg-slate-50 border-2 border-slate-200 p-3 rounded-xl text-[10px] font-mono text-slate-600 mb-4">
+        <div class="flex justify-between">
+          <span>Тариф: <strong id="dbgZone">-</strong></span>
+          <span>Км: <strong id="dbgDist">-</strong></span>
+        </div>
+        <div class="mt-1 text-xs text-slate-800" id="dbgCalc"></div>
+      </div>
+
       <div class="space-y-4">
         <div>
            <label class="block text-[10px] font-black text-slate-400 uppercase mb-2 ml-1 tracking-widest">Звідки</label>
@@ -39,9 +47,6 @@
         <div class="relative">
           <label class="block text-[10px] font-black text-slate-400 uppercase mb-2 ml-1 tracking-widest">Куди (Місто чи Село)</label>
           <input id="city" type="text" class="w-full bg-white border-2 border-slate-100 rounded-2xl px-5 py-4 text-sm outline-none focus:border-slate-900 transition-all placeholder:text-slate-300" placeholder="Почніть вводити назву..." autocomplete="off" />
-          <p class="text-[10px] text-slate-400 mt-1 ml-1 flex items-center gap-1">
-            👇 Оберіть зі списку підказок
-          </p>
         </div>
 
         <div class="grid grid-cols-2 gap-4">
@@ -51,7 +56,8 @@
           </div>
           <div>
             <label class="block text-[10px] font-black text-slate-400 uppercase mb-2 ml-1 tracking-widest">Довжина (м)</label>
-            <input id="length" type="number" step="0.1" class="w-full bg-white border-2 border-slate-100 rounded-2xl px-5 py-4 text-sm outline-none focus:border-slate-900 transition-all" placeholder="Напр. 6" />
+            <input id="length" type="number" step="0.1" class="w-full bg-white border-2 border-slate-100 rounded-2xl px-5 py-4 text-sm outline-none focus:border-slate-900 transition-all" placeholder="Напр. 3" />
+            <p class="text-[9px] text-slate-400 mt-1 ml-1 text-right">⚠️ >6м = +4500грн</p>
           </div>
         </div>
       </div>
@@ -89,13 +95,6 @@
       rateStandard: 22,   
       rateLight: 16,      
       rateFarVolyn: 29,   
-
-      minPricesDefault: {
-        'львів': 2500,
-        'рівн': 6500,
-        'терно': 3500,
-        'закар': 4000
-      },
       
       fees: { weightMed: 1500, weightHeavy: 3000, longLoad: 2000, sixMeterBonus: 4500 }
     };
@@ -132,7 +131,9 @@
         length: document.getElementById('length'), result: document.getElementById('resultCard'),
         price: document.getElementById('finalPrice'), dist: document.getElementById('distDisplay'),
         regionLab: document.getElementById('regionLabel'), wLabel: document.getElementById('weightLabel'),
-        err: document.getElementById('errorBox'), btn: document.getElementById('calcBtn')
+        err: document.getElementById('errorBox'), btn: document.getElementById('calcBtn'),
+        dbgPanel: document.getElementById('debugPanel'), dbgZone: document.getElementById('dbgZone'), 
+        dbgDist: document.getElementById('dbgDist'), dbgCalc: document.getElementById('dbgCalc')
       };
 
       if (!selectedPlace || ui.cityInput.value === "") {
@@ -189,28 +190,28 @@
         let finalPrice = 0;
         let activeMinPrice = 2500;
         let rate = CONFIG.rateStandard;
+        let zoneDebug = "";
 
         if (provinceKey === 'волин') {
             
-            // Якщо є в білому списку АБО відстань нормальна (до 235 км)
             if (isForcedCloseVolyn || distKm <= 235) {
-               // --- БЛИЖНЯ ВОЛИНЬ (3500) ---
+               // --- БЛИЖНЯ ВОЛИНЬ ---
+               zoneDebug = "Ближня Волинь";
                rate = (w <= 500) ? CONFIG.rateLight : CONFIG.rateStandard;
                finalPrice = distKm * rate;
-
                activeMinPrice = isLutsk ? 2500 : 3500;
                
                if (w > 500 && w <= 1000) finalPrice += CONFIG.fees.weightMed;
                else if (w > 1000) finalPrice += CONFIG.fees.weightHeavy;
                
                ui.wLabel.textContent = w <= 500 ? "Легкий вантаж" : "Важкий вантаж";
-
             } else {
-               // --- ДАЛЕКА ВОЛИНЬ (5500) ---
-               activeMinPrice = 5500; // НОВА МІНІМАЛКА
+               // --- ДАЛЕКА ВОЛИНЬ ---
+               zoneDebug = "Далека Волинь";
+               activeMinPrice = 5500; // МІНІМАЛКА 5500
 
                if (w <= 500) {
-                 // Легка вага -> Тариф 16 -> (240*16 = 3840) -> підтягуємо до 5500
+                 // Легка вага -> Тариф 16, але не менше 5500
                  rate = CONFIG.rateLight; 
                  ui.wLabel.textContent = "Легкий вантаж (Далеко)";
                } else {
@@ -226,9 +227,9 @@
                  else finalPrice += CONFIG.fees.weightHeavy;
                }
             }
-
         } else {
             // ІНШІ ОБЛАСТІ
+            zoneDebug = "Інша область";
             rate = (w <= 500) ? CONFIG.rateLight : CONFIG.rateStandard;
             finalPrice = distKm * rate;
             ui.wLabel.textContent = w <= 500 ? "Легкий вантаж" : "Важкий вантаж";
@@ -236,22 +237,47 @@
             if (w > 500 && w <= 1000) finalPrice += CONFIG.fees.weightMed;
             else if (w > 1000) finalPrice += CONFIG.fees.weightHeavy;
             
-            if (CONFIG.minPricesDefault[provinceKey]) {
-                if (provinceKey === 'рівн') activeMinPrice = 6500;
-                else if (provinceKey === 'терно') activeMinPrice = 3500;
-                else if (provinceKey === 'закар') activeMinPrice = 4000;
-                else activeMinPrice = 2500;
-            }
+            // Специфічні мінімалки
+            if (provinceKey === 'рівн') activeMinPrice = 6500;
+            else if (provinceKey === 'терно') activeMinPrice = 3500;
+            else if (provinceKey === 'закар') activeMinPrice = 4000;
+            else activeMinPrice = 2500; // Львів
         }
 
+        // Застосування мінімалки
+        let priceBeforeExtras = finalPrice;
         if (finalPrice < activeMinPrice) finalPrice = activeMinPrice;
+        let priceAfterMin = finalPrice;
 
-        if (l >= 6) finalPrice += CONFIG.fees.sixMeterBonus;
-        else if (l > 4.05) finalPrice += CONFIG.fees.longLoad;
+        // --- ГАБАРИТИ (ОКРЕМО) ---
+        let extraFee = 0;
+        let lengthNote = "";
+        
+        if (l >= 6) {
+          extraFee = CONFIG.fees.sixMeterBonus; // +4500 грн
+          lengthNote = "+ Негабарит 6м (4500 грн)";
+          ui.dist.innerText = distKm.toFixed(0) + " км (Спецтранспорт)";
+          ui.dist.className = "font-black text-red-600";
+        } else if (l > 4.05) {
+          extraFee = CONFIG.fees.longLoad;
+          lengthNote = "+ Негабарит 4м (2000 грн)";
+          ui.dist.innerText = distKm.toFixed(0) + " км";
+          ui.dist.className = "font-black text-orange-500";
+        } else {
+          ui.dist.innerText = distKm.toFixed(0) + " км";
+          ui.dist.className = "font-black text-slate-900";
+        }
+        
+        finalPrice += extraFee;
+
+        // DEBUG INFO
+        ui.dbgZone.textContent = zoneDebug;
+        ui.dbgDist.textContent = distKm.toFixed(1) + " км";
+        ui.dbgCalc.innerHTML = `База: ${Math.round(priceBeforeExtras)} грн<br>Мін. поріг: ${activeMinPrice} грн<br>Доплата за довжину: ${extraFee} грн`;
+        ui.dbgPanel.classList.remove('hidden');
 
         const rounded = Math.ceil(finalPrice / 500) * 500;
         ui.price.textContent = rounded.toLocaleString('uk-UA') + " грн";
-        ui.dist.textContent = distKm.toFixed(0) + " км";
         ui.result.classList.remove('hidden');
 
       } catch (e) {
