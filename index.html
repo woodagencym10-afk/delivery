@@ -10,18 +10,29 @@
     @keyframes fadeIn { to { opacity: 1; transform: translateY(0); } }
     .loader { border: 2px solid #f3f3f3; border-top: 2px solid #0f172a; border-radius: 50%; width: 18px; height: 18px; animation: spin 1s linear infinite; display: inline-block; }
     
+    /* ВИПРАВЛЕННЯ СПИСКУ: Робимо його поверх усього */
     .pac-container {
-      z-index: 10000 !important;
+      z-index: 99999 !important; /* Найвищий пріоритет */
       border-radius: 0.5rem;
-      margin-top: 4px;
-      box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+      margin-top: 5px;
+      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.2);
+      border: 1px solid #e2e8f0;
+    }
+    .pac-item {
+      padding: 12px;
+      font-size: 14px;
+      cursor: pointer;
+    }
+    .pac-item:hover {
+      background-color: #f1f5f9;
     }
   </style>
 </head>
-<body class="bg-slate-50 font-sans min-h-screen flex items-center justify-center p-4">
+<body class="bg-slate-100 font-sans min-h-screen flex items-center justify-center p-4">
 
-  <div class="w-full max-w-[460px] bg-white rounded-[2.5rem] shadow-2xl overflow-hidden border border-slate-100 relative z-10">
-    <div class="bg-slate-900 p-8 text-center">
+  <div class="w-full max-w-[460px] bg-white rounded-[2rem] shadow-2xl border border-slate-200 relative z-10">
+    
+    <div class="bg-slate-900 p-8 text-center rounded-t-[2rem]">
       <h1 class="text-2xl font-black text-white tracking-tight mb-1">Калькулятор Доставки</h1>
       <p class="text-slate-400 text-[10px] uppercase tracking-[0.2em] font-bold">Західна Україна</p>
     </div>
@@ -33,10 +44,12 @@
            <input type="text" value="Львів" disabled class="w-full bg-slate-50 border border-slate-200 text-slate-500 rounded-2xl px-5 py-4 text-sm font-bold cursor-not-allowed" />
         </div>
         
-        <div>
+        <div class="relative">
           <label class="block text-[10px] font-black text-slate-400 uppercase mb-2 ml-1 tracking-widest">Куди (Місто чи Село)</label>
-          <input id="city" type="text" class="w-full bg-white border-2 border-slate-100 rounded-2xl px-5 py-4 text-sm outline-none focus:border-slate-900 transition-all placeholder:text-slate-300" placeholder="Введіть назву та оберіть зі списку..." autocomplete="off" />
-          <p class="text-[10px] text-slate-400 mt-1 ml-1">💡 Обов'язково оберіть зі списку</p>
+          <input id="city" type="text" class="w-full bg-white border-2 border-slate-100 rounded-2xl px-5 py-4 text-sm outline-none focus:border-slate-900 transition-all placeholder:text-slate-300" placeholder="Почніть вводити назву..." autocomplete="off" />
+          <p class="text-[10px] text-slate-400 mt-1 ml-1 flex items-center gap-1">
+            👆 Оберіть зі списку підказок
+          </p>
         </div>
 
         <div class="grid grid-cols-2 gap-4">
@@ -81,7 +94,44 @@
 
   <script>
     const CONFIG = {
-      // ТАРИФНА СІТКА
-      rateStandard: 22,   // Звичайний тариф
-      rateLight: 16,      // Для малої ваги (щоб вийшло 2500 на Луцьк)
-      rateFarVolyn: 29,   // Спецтариф для далекої Волині (щоб вийшло 7000 на Ра
+      // Тарифи
+      rateStandard: 22,   // Звичайний
+      rateLight: 16,      // Для малої ваги (Луцьк -> 2500)
+      rateFarVolyn: 29,   // Далека Волинь (Ратне -> 7000)
+
+      minPricesHeavy: {
+        'львів': 2500,
+        'волин': 5000,
+        'рівн': 6500,
+        'терно': 3500,
+        'закар': 4000
+      },
+      minPriceLight: 2500, 
+      
+      fees: {
+        weightMed: 1500,   
+        weightHeavy: 3000, 
+        longLoad: 2000,    
+        sixMeterBonus: 4500
+      }
+    };
+
+    let mapService, autocomplete, selectedPlace = null;
+
+    function initMaps() {
+      console.log("Maps Loaded");
+      mapService = new google.maps.DistanceMatrixService();
+      const input = document.getElementById("city");
+      
+      // Ініціалізація автозаповнення
+      autocomplete = new google.maps.places.Autocomplete(input, {
+        componentRestrictions: { country: "ua" },
+        fields: ["address_components", "geometry", "formatted_address"]
+      });
+
+      // Слухач вибору
+      autocomplete.addListener("place_changed", () => {
+        const place = autocomplete.getPlace();
+        if (!place.geometry) {
+          selectedPlace = null;
+          return;
