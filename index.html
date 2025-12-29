@@ -10,7 +10,6 @@
     @keyframes fadeIn { to { opacity: 1; transform: translateY(0); } }
     .loader { border: 2px solid #f3f3f3; border-top: 2px solid #0f172a; border-radius: 50%; width: 18px; height: 18px; animation: spin 1s linear infinite; display: inline-block; }
     
-    /* Список підказок завжди зверху */
     .pac-container {
       z-index: 99999 !important;
       border-radius: 0.5rem;
@@ -87,9 +86,9 @@
       rateLight: 16,    
       rateFarVolyn: 29, 
 
+      // Мінімалки для інших областей (стандартні)
       minPricesHeavy: {
         'львів': 2500,
-        'волин': 5000, 
         'рівн': 6500,
         'терно': 3500,
         'закар': 4000
@@ -157,7 +156,6 @@
       let provinceLong = "Не визначено";
       let provinceKey = "";
       
-      // Перевіряємо чи це Луцьк
       const cityName = selectedPlace.name ? selectedPlace.name.toLowerCase() : "";
       const isLutsk = cityName.includes("луцьк") || cityName.includes("lutsk");
       
@@ -204,31 +202,30 @@
         // --- ЛОГІКА ДЛЯ ВОЛИНІ ---
         if (provinceKey === 'волин') {
             
-            if (distKm > 170) {
-               // ДАЛЕКА ВОЛИНЬ (Ратне) -> Дорого
+            // Якщо більше 200 км (Ратне і т.д.) - це "Далека Волинь"
+            if (distKm > 200) {
                rate = CONFIG.rateFarVolyn;
                activeMinPrice = 5000;
                finalPrice = distKm * rate;
                ui.wLabel.textContent = "Далека відстань";
 
             } else {
-               // БЛИЖНЯ ВОЛИНЬ (Павлівка, Луцьк)
-               rate = CONFIG.rateLight; // Базовий низький тариф для малої ваги
-
-               if (w > 500) rate = CONFIG.rateStandard; // Якщо вага велика - стандарт
+               // БЛИЖНЯ/СЕРЕДНЯ ВОЛИНЬ (Луцьк, Павлівка, Волошки)
+               // Відстань <= 200 км
+               
+               rate = CONFIG.rateLight; // Базовий
+               if (w > 500) rate = CONFIG.rateStandard;
 
                finalPrice = distKm * rate;
 
-               // Визначаємо мінімалку
+               // МІНІМАЛКИ:
                if (isLutsk) {
-                 // Тільки для Луцька -> 2500
-                 activeMinPrice = 2500;
+                 activeMinPrice = 2500; // Тільки Луцьк
                } else {
-                 // Для всіх інших міст Волині (Павлівка) -> 3500
-                 activeMinPrice = 3500; 
+                 activeMinPrice = 3500; // Всі інші міста до 200км (Павлівка, Волошки)
                }
 
-               // Вагова націнка (стандартна)
+               // Вагова націнка
                if (w > 500 && w <= 1000) finalPrice += CONFIG.fees.weightMed;
                else if (w > 1000) finalPrice += CONFIG.fees.weightHeavy;
 
