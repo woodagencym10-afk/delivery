@@ -131,3 +131,154 @@
     async function calculateDelivery() {
       const ui = {
         cityInput: document.getElementById('city'),
+        weight: document.getElementById('weight'),
+        length: document.getElementById('length'),
+        result: document.getElementById('resultCard'),
+        price: document.getElementById('finalPrice'),
+        dist: document.getElementById('distDisplay'),
+        regionLab: document.getElementById('regionLabel'),
+        wLabel: document.getElementById('weightLabel'),
+        err: document.getElementById('errorBox'),
+        btn: document.getElementById('calcBtn')
+      };
+
+      if (!selectedPlace || ui.cityInput.value === "") {
+        ui.err.innerHTML = "⚠️ <strong>Місто не обрано!</strong><br>Оберіть варіант зі списку.";
+        ui.err.classList.remove('hidden');
+        ui.cityInput.classList.add('border-red-500');
+        return;
+      }
+
+      ui.err.classList.add('hidden');
+      ui.btn.disabled = true;
+      ui.btn.innerHTML = `<span class="loader"></span>`;
+
+      // 1. Визначення області та назви міста
+      let provinceLong = "Не визначено";
+      let provinceKey = "";
+      
+      // Перевіряємо чи це Луцьк
+      const cityName = selectedPlace.name ? selectedPlace.name.toLowerCase() : "";
+      const isLutsk = cityName.includes("луцьк") || cityName.includes("lutsk");
+      
+      if (selectedPlace.address_components) {
+        for (const component of selectedPlace.address_components) {
+          if (component.types.includes("administrative_area_level_1")) {
+            provinceLong = component.long_name;
+            const lowerName = provinceLong.toLowerCase();
+            
+            if (lowerName.includes("львів") || lowerName.includes("lviv")) provinceKey = "львів";
+            else if (lowerName.includes("волин") || lowerName.includes("volyn")) provinceKey = "волин";
+            else if (lowerName.includes("рівн") || lowerName.includes("rivne")) provinceKey = "рівн";
+            else if (lowerName.includes("терно") || lowerName.includes("terno")) provinceKey = "терно";
+            else if (lowerName.includes("закар") || lowerName.includes("zakar")) provinceKey = "закар";
+          }
+        }
+      }
+      ui.regionLab.textContent = provinceLong;
+
+      const w = parseFloat(ui.weight.value) || 0;
+      const l = parseFloat(ui.length.value) || 0;
+
+      try {
+        const distKm = await new Promise((res, rej) => {
+          mapService.getDistanceMatrix({
+            origins: ["Львів, Україна"],
+            destinations: [selectedPlace.formatted_address],
+            travelMode: 'DRIVING'
+          }, (r, s) => {
+            if (s === 'OK' && r.rows[0].elements[0].status === 'OK') {
+              res(r.rows[0].elements[0].distance.value / 1000);
+            } else {
+              rej(s);
+            }
+          });
+        });
+
+        // ================= ЛОГІКА РОЗРАХУНКУ =================
+        
+        let finalPrice = 0;
+        let activeMinPrice = 2500;
+        let rate = CONFIG.rateStandard;
+
+        // --- ЛОГІКА ДЛЯ ВОЛИНІ ---
+        if (provinceKey === 'волин') {
+            
+            if (distKm > 170) {
+               // ДАЛЕКА ВОЛИНЬ (Ратне) -> Дорого
+               rate = CONFIG.rateFarVolyn;
+               activeMinPrice = 5000;
+               finalPrice = distKm * rate;
+               ui.wLabel.textContent = "Далека відстань";
+
+            } else {
+               // БЛИЖНЯ ВОЛИНЬ (Павлівка, Луцьк)
+               rate = CONFIG.rateLight; // Базовий низький тариф для малої ваги
+
+               if (w > 500) rate = CONFIG.rateStandard; // Якщо вага велика - стандарт
+
+               finalPrice = distKm * rate;
+
+               // Визначаємо мінімалку
+               if (isLutsk) {
+                 // Тільки для Луцька -> 2500
+                 activeMinPrice = 2500;
+               } else {
+                 // Для всіх інших міст Волині (Павлівка) -> 3500
+                 activeMinPrice = 3500; 
+               }
+
+               // Вагова націнка (стандартна)
+               if (w > 500 && w <= 1000) finalPrice += CONFIG.fees.weightMed;
+               else if (w > 1000) finalPrice += CONFIG.fees.weightHeavy;
+
+               ui.wLabel.textContent = w <= 500 ? `Легкий вантаж` : `Важкий вантаж`;
+            }
+
+        } else {
+            // --- ІНШІ ОБЛАСТІ ---
+            if (w <= 500) {
+               rate = CONFIG.rateLight;
+               activeMinPrice = 2500;
+               finalPrice = distKm * rate;
+               ui.wLabel.textContent = "Легкий вантаж";
+            } else {
+               rate = CONFIG.rateStandard;
+               finalPrice = distKm * rate;
+               if (w <= 1000) finalPrice += CONFIG.fees.weightMed;
+               else finalPrice += CONFIG.fees.weightHeavy;
+               
+               if (CONFIG.minPricesHeavy[provinceKey]) activeMinPrice = CONFIG.minPricesHeavy[provinceKey];
+               ui.wLabel.textContent = "Важкий вантаж";
+            }
+        }
+
+        // Застосування мінімалки
+        if (finalPrice < activeMinPrice) finalPrice = activeMinPrice;
+
+        // Габарити
+        if (l >= 6) finalPrice += CONFIG.fees.sixMeterBonus;
+        else if (l > 4.05) finalPrice += CONFIG.fees.longLoad;
+
+        const rounded = Math.ceil(finalPrice / 500) * 500;
+        
+        ui.price.textContent = rounded.toLocaleString('uk-UA') + " грн";
+        ui.dist.textContent = distKm.toFixed(0) + " км";
+        ui.result.classList.remove('hidden');
+
+      } catch (e) {
+        console.error(e);
+        ui.err.innerHTML = "Помилка API. Спробуйте ще раз.";
+        ui.err.classList.remove('hidden');
+      } finally {
+        ui.btn.disabled = false;
+        ui.btn.innerHTML = "Розрахувати";
+      }
+    }
+
+    document.getElementById('calcBtn').addEventListener('click', calculateDelivery);
+  </script>
+  
+  <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyDFR9n0yr9SEPDWGyH1G_dDJBit7bxvy_Y&libraries=places&callback=initMaps" async defer></script>
+</body>
+</html>
