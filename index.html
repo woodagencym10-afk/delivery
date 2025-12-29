@@ -56,8 +56,8 @@
           </div>
           <div>
             <label class="block text-[10px] font-black text-slate-400 uppercase mb-2 ml-1 tracking-widest">Довжина (м)</label>
-            <input id="length" type="number" step="0.1" class="w-full bg-white border-2 border-slate-100 rounded-2xl px-5 py-4 text-sm outline-none focus:border-slate-900 transition-all" placeholder="Напр. 3" />
-            <p class="text-[9px] text-slate-400 mt-1 ml-1 text-right">⚠️ >6м = +4500грн</p>
+            <input id="length" type="number" step="0.1" class="w-full bg-white border-2 border-slate-100 rounded-2xl px-5 py-4 text-sm outline-none focus:border-slate-900 transition-all" placeholder="Напр. 6" />
+            <p class="text-[9px] text-slate-400 mt-1 ml-1 text-right">⚠️ >6м = +2500грн</p>
           </div>
         </div>
       </div>
@@ -96,7 +96,12 @@
       rateLight: 16,      
       rateFarVolyn: 29,   
       
-      fees: { weightMed: 1500, weightHeavy: 3000, longLoad: 2000, sixMeterBonus: 4500 }
+      fees: { 
+        weightMed: 1500, 
+        weightHeavy: 3000, 
+        longLoad: 2000, 
+        sixMeterBonus: 2500 // ТУТ ЗМІНЕНО НА 2500
+      }
     };
 
     // БІЛИЙ СПИСОК (Примусова ціна 3500 або 2500)
@@ -208,14 +213,12 @@
             } else {
                // --- ДАЛЕКА ВОЛИНЬ ---
                zoneDebug = "Далека Волинь";
-               activeMinPrice = 5500; // МІНІМАЛКА 5500
+               activeMinPrice = 5500; // МІНІМАЛКА
 
                if (w <= 500) {
-                 // Легка вага -> Тариф 16, але не менше 5500
                  rate = CONFIG.rateLight; 
                  ui.wLabel.textContent = "Легкий вантаж (Далеко)";
                } else {
-                 // Важка вага -> Тариф 29
                  rate = CONFIG.rateFarVolyn; 
                  ui.wLabel.textContent = "Важкий вантаж (Далеко)";
                }
@@ -237,30 +240,24 @@
             if (w > 500 && w <= 1000) finalPrice += CONFIG.fees.weightMed;
             else if (w > 1000) finalPrice += CONFIG.fees.weightHeavy;
             
-            // Специфічні мінімалки
             if (provinceKey === 'рівн') activeMinPrice = 6500;
             else if (provinceKey === 'терно') activeMinPrice = 3500;
             else if (provinceKey === 'закар') activeMinPrice = 4000;
-            else activeMinPrice = 2500; // Львів
+            else activeMinPrice = 2500;
         }
 
-        // Застосування мінімалки
         let priceBeforeExtras = finalPrice;
         if (finalPrice < activeMinPrice) finalPrice = activeMinPrice;
-        let priceAfterMin = finalPrice;
-
-        // --- ГАБАРИТИ (ОКРЕМО) ---
+        
+        // --- ГАБАРИТИ ---
         let extraFee = 0;
-        let lengthNote = "";
         
         if (l >= 6) {
-          extraFee = CONFIG.fees.sixMeterBonus; // +4500 грн
-          lengthNote = "+ Негабарит 6м (4500 грн)";
+          extraFee = CONFIG.fees.sixMeterBonus; // 2500 грн
           ui.dist.innerText = distKm.toFixed(0) + " км (Спецтранспорт)";
           ui.dist.className = "font-black text-red-600";
         } else if (l > 4.05) {
-          extraFee = CONFIG.fees.longLoad;
-          lengthNote = "+ Негабарит 4м (2000 грн)";
+          extraFee = CONFIG.fees.longLoad; // 2000 грн
           ui.dist.innerText = distKm.toFixed(0) + " км";
           ui.dist.className = "font-black text-orange-500";
         } else {
@@ -273,7 +270,7 @@
         // DEBUG INFO
         ui.dbgZone.textContent = zoneDebug;
         ui.dbgDist.textContent = distKm.toFixed(1) + " км";
-        ui.dbgCalc.innerHTML = `База: ${Math.round(priceBeforeExtras)} грн<br>Мін. поріг: ${activeMinPrice} грн<br>Доплата за довжину: ${extraFee} грн`;
+        ui.dbgCalc.innerHTML = `База: ${Math.round(priceBeforeExtras)} -> Мін: ${activeMinPrice}<br>Доплата довжину: ${extraFee} грн`;
         ui.dbgPanel.classList.remove('hidden');
 
         const rounded = Math.ceil(finalPrice / 500) * 500;
