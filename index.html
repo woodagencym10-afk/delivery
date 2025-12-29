@@ -18,13 +18,6 @@
       border: 1px solid #e2e8f0;
       font-family: inherit;
     }
-    .pac-item {
-      padding: 12px 16px;
-      font-size: 14px;
-      cursor: pointer;
-      border-top: 1px solid #f1f5f9;
-    }
-    .pac-item:hover { background-color: #f8fafc; }
   </style>
 </head>
 <body class="bg-slate-100 font-sans min-h-screen flex items-center justify-center p-4">
@@ -36,6 +29,13 @@
     </div>
 
     <div class="p-8 space-y-6">
+      
+      <div id="debugPanel" class="hidden bg-blue-50 border-2 border-blue-100 p-3 rounded-xl text-[10px] font-mono text-blue-900 mb-4">
+        <p><strong>Місто:</strong> <span id="dbgCity">-</span></p>
+        <p><strong>Режим:</strong> <span id="dbgMode" class="font-bold">-</span></p>
+        <p><strong>Кілометри:</strong> <span id="dbgDist">-</span></p>
+      </div>
+
       <div class="space-y-4">
         <div>
            <label class="block text-[10px] font-black text-slate-400 uppercase mb-2 ml-1 tracking-widest">Звідки</label>
@@ -96,7 +96,6 @@
       rateLight: 16,      
       rateFarVolyn: 29,   
 
-      // ПРИБРАВ "волин" ЗВІДСИ, щоб не було випадкових спрацювань на 5000
       minPricesDefault: {
         'львів': 2500,
         'рівн': 6500,
@@ -104,11 +103,19 @@
         'закар': 4000
       },
       
-      fees: {
-        weightMed: 1500, weightHeavy: 3000, 
-        longLoad: 2000, sixMeterBonus: 4500 
-      }
+      fees: { weightMed: 1500, weightHeavy: 3000, longLoad: 2000, sixMeterBonus: 4500 }
     };
+
+    // БІЛИЙ СПИСОК МІСТ (Завжди Ближня Волинь -> дешево)
+    const closeVolynTowns = [
+      "луцьк", "lutsk", 
+      "володимир", "volodymyr", 
+      "ковель", "kovel", 
+      "павлівка", "pavlivka", 
+      "волошки", "voloshky",
+      "горохів", "horokhiv",
+      "нововолинськ", "novovolynsk"
+    ];
 
     let mapService, autocomplete, selectedPlace = null;
 
@@ -135,7 +142,12 @@
         length: document.getElementById('length'), result: document.getElementById('resultCard'),
         price: document.getElementById('finalPrice'), dist: document.getElementById('distDisplay'),
         regionLab: document.getElementById('regionLabel'), wLabel: document.getElementById('weightLabel'),
-        err: document.getElementById('errorBox'), btn: document.getElementById('calcBtn')
+        err: document.getElementById('errorBox'), btn: document.getElementById('calcBtn'),
+        // Debug
+        dbgPanel: document.getElementById('debugPanel'),
+        dbgCity: document.getElementById('dbgCity'),
+        dbgMode: document.getElementById('dbgMode'),
+        dbgDist: document.getElementById('dbgDist')
       };
 
       if (!selectedPlace || ui.cityInput.value === "") {
@@ -148,22 +160,30 @@
       ui.btn.disabled = true;
       ui.btn.innerHTML = `<span class="loader"></span>`;
 
-      // 1. Область
+      // Визначаємо область та назву
       let provinceLong = "Не визначено";
       let provinceKey = "";
       const cityName = selectedPlace.name ? selectedPlace.name.toLowerCase() : "";
+      
+      // Перевірка на Луцьк
       const isLutsk = cityName.includes("луцьк") || cityName.includes("lutsk");
       
+      // Перевірка на "Ближню Волинь" через Білий список
+      let isForcedCloseVolyn = false;
+      closeVolynTowns.forEach(town => {
+        if (cityName.includes(town)) isForcedCloseVolyn = true;
+      });
+
       if (selectedPlace.address_components) {
         for (const c of selectedPlace.address_components) {
           if (c.types.includes("administrative_area_level_1")) {
             provinceLong = c.long_name;
             const ln = provinceLong.toLowerCase();
-            if (ln.includes("львів") || ln.includes("lviv")) provinceKey = "львів";
+            if (ln.includes("львів")) provinceKey = "львів";
             else if (ln.includes("волин") || ln.includes("volyn")) provinceKey = "волин";
             else if (ln.includes("рівн") || ln.includes("rivne")) provinceKey = "рівн";
             else if (ln.includes("терно") || ln.includes("terno")) provinceKey = "терно";
-            else if (ln.includes("закар") || ln.includes("zakar")) provinceKey = "закар";
+            else if (ln.includes("закар")) provinceKey = "закар";
           }
         }
       }
@@ -184,43 +204,46 @@
           });
         });
 
-        // === ЛОГІКА ===
+        // ================= ЛОГІКА =================
         let finalPrice = 0;
         let activeMinPrice = 2500;
         let rate = CONFIG.rateStandard;
+        let modeDescription = "";
 
         // --- ВОЛИНЬ ---
         if (provinceKey === 'волин') {
             
-            // Якщо більше 220 км (Ратне) -> 5000+
-            if (distKm > 220) {
-               rate = CONFIG.rateFarVolyn;
-               activeMinPrice = 5000;
-               finalPrice = distKm * rate;
-               ui.wLabel.textContent = "Далека відстань";
-            } else {
-               // До 220 км (Волошки, Луцьк, Павлівка) -> 3500 або 2500
+            // Якщо це місто зі списку (Волошки, Павлівка) АБО відстань до 235 км
+            if (isForcedCloseVolyn || distKm <= 235) {
+               // БЛИЖНЯ ВОЛИНЬ
+               modeDescription = "Ближня Волинь (Список/Км)";
                
-               // Тариф
                rate = (w <= 500) ? CONFIG.rateLight : CONFIG.rateStandard;
                finalPrice = distKm * rate;
 
-               // Мінімалка
                if (isLutsk) {
                  activeMinPrice = 2500;
                } else {
-                 activeMinPrice = 3500; // Це ключове: для Волошок (158км) стане 3500
+                 activeMinPrice = 3500; // Для Волошок
                }
 
-               // Вага
                if (w > 500 && w <= 1000) finalPrice += CONFIG.fees.weightMed;
                else if (w > 1000) finalPrice += CONFIG.fees.weightHeavy;
                
                ui.wLabel.textContent = w <= 500 ? "Легкий вантаж" : "Важкий вантаж";
+
+            } else {
+               // ДАЛЕКА ВОЛИНЬ (Ратне)
+               modeDescription = "Далека Волинь";
+               rate = CONFIG.rateFarVolyn;
+               activeMinPrice = 5000;
+               finalPrice = distKm * rate;
+               ui.wLabel.textContent = "Далека відстань";
             }
 
         } else {
-            // --- ІНШІ ---
+            // --- ІНШІ ОБЛАСТІ ---
+            modeDescription = "Інша область";
             if (w <= 500) {
                rate = CONFIG.rateLight;
                activeMinPrice = 2500; 
@@ -245,18 +268,18 @@
 
         if (finalPrice < activeMinPrice) finalPrice = activeMinPrice;
 
-        if (l >= 6) {
-          finalPrice += CONFIG.fees.sixMeterBonus;
-          ui.dist.innerText = distKm.toFixed(0) + " км (Спецтранспорт)";
-        } else if (l > 4.05) {
-          finalPrice += CONFIG.fees.longLoad;
-          ui.dist.innerText = distKm.toFixed(0) + " км";
-        } else {
-          ui.dist.innerText = distKm.toFixed(0) + " км";
-        }
+        if (l >= 6) finalPrice += CONFIG.fees.sixMeterBonus;
+        else if (l > 4.05) finalPrice += CONFIG.fees.longLoad;
+
+        // DEBUG INFO
+        ui.dbgCity.textContent = cityName;
+        ui.dbgMode.textContent = modeDescription;
+        ui.dbgDist.textContent = distKm.toFixed(1) + " км";
+        ui.dbgPanel.classList.remove('hidden');
 
         const rounded = Math.ceil(finalPrice / 500) * 500;
         ui.price.textContent = rounded.toLocaleString('uk-UA') + " грн";
+        ui.dist.textContent = distKm.toFixed(0) + " км";
         ui.result.classList.remove('hidden');
 
       } catch (e) {
