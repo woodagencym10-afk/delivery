@@ -99,17 +99,19 @@
       fees: { 
         weightMed: 1500, 
         weightHeavy: 3000, 
-        longLoad: 2000, 
-        sixMeterBonus: 3500 
+        lenFiveMeter: 700,   // Доплата 4.01-5м
+        lenSixMeter: 2000    // Доплата 5.01-6м
       }
     };
 
-    // БІЛИЙ СПИСОК (Примусова ціна 3500 або 2500)
     const closeVolynKeywords = [
       "луцьк", "lutsk", "володимир", "volodymyr", "ковель", "kovel", 
       "павлівка", "pavlivka", "волошки", "voloshky", "горохів", "horokhiv",
       "нововолинськ", "novovolynsk", "торчин", "torchyn"
     ];
+    
+    // Ключові слова для ідентифікації саме МІСТА Рівне
+    const rivneCityKeywords = ["рівне", "rivne"];
 
     let mapService, autocomplete, selectedPlace = null;
 
@@ -149,7 +151,6 @@
 
       ui.err.classList.add('hidden');
       
-      // ПЕРЕВІРКА ДОВЖИНИ (Жорстке обмеження)
       const l = parseFloat(ui.length.value) || 0;
       if (l > 6) {
         ui.err.innerHTML = "⛔ <strong>Ми не возимо вантажі довші за 6 метрів!</strong><br>Будь ласка, введіть коректну довжину.";
@@ -160,15 +161,20 @@
       ui.btn.disabled = true;
       ui.btn.innerHTML = `<span class="loader"></span>`;
 
-      // 1. Аналіз
+      // 1. Аналіз регіону
       let provinceLong = "Не визначено";
       let provinceKey = "";
       const fullAddress = (selectedPlace.formatted_address || "").toLowerCase();
       const nameOnly = (selectedPlace.name || "").toLowerCase();
       
+      // Перевірки
       const isLutsk = fullAddress.includes("луцьк") || nameOnly.includes("луцьк");
       let isForcedCloseVolyn = false;
       closeVolynKeywords.forEach(k => { if (fullAddress.includes(k) || nameOnly.includes(k)) isForcedCloseVolyn = true; });
+
+      // Перевірка чи це саме місто Рівне (щоб відділити від області)
+      // Логіка: якщо назва міста "Рівне" або адреса починається з "Рівне,"
+      const isRivneCity = nameOnly.trim() === "рівне" || nameOnly.trim() === "rivne" || fullAddress.startsWith("рівне,") || fullAddress.startsWith("rivne,");
 
       if (selectedPlace.address_components) {
         for (const c of selectedPlace.address_components) {
@@ -205,9 +211,40 @@
         let rate = CONFIG.rateStandard;
         let zoneDebug = "";
 
-        if (provinceKey === 'волин') {
+        // 1. РІВНЕНСЬКА ОБЛАСТЬ (НОВА ЛОГІКА)
+        if (provinceKey === 'рівн') {
+            if (isRivneCity) {
+                // САМЕ МІСТО РІВНЕ - ФІКСОВАНІ ЦІНИ
+                zoneDebug = "м. Рівне (Спецтариф)";
+                
+                if (w <= 500) {
+                    finalPrice = 4500;
+                    ui.wLabel.textContent = "Вага до 500 кг";
+                } else if (w < 1000) {
+                    finalPrice = 5000;
+                    ui.wLabel.textContent = "Вага 501-999 кг";
+                } else {
+                    finalPrice = 6000;
+                    ui.wLabel.textContent = "Вага від 1000 кг";
+                }
+                activeMinPrice = finalPrice; // Тут мінімум дорівнює фіксу
+            } else {
+                // РІВНЕНСЬКА ОБЛАСТЬ (не місто)
+                zoneDebug = "Рівненська обл (Км)";
+                rate = (w <= 500) ? CONFIG.rateLight : CONFIG.rateStandard;
+                finalPrice = distKm * rate;
+                
+                // Доплата за вагу по області
+                ui.wLabel.textContent = w <= 500 ? "Легкий вантаж" : "Важкий вантаж";
+                if (w > 500 && w <= 1000) finalPrice += CONFIG.fees.weightMed;
+                else if (w > 1000) finalPrice += CONFIG.fees.weightHeavy;
+
+                activeMinPrice = 4500; // Базовий мінімум для області
+            }
+
+        // 2. ВОЛИНЬ
+        } else if (provinceKey === 'волин') {
             if (isForcedCloseVolyn || distKm <= 235) {
-               // БЛИЖНЯ ВОЛИНЬ
                zoneDebug = "Ближня Волинь";
                rate = (w <= 500) ? CONFIG.rateLight : CONFIG.rateStandard;
                finalPrice = distKm * rate;
@@ -216,7 +253,6 @@
                else if (w > 1000) finalPrice += CONFIG.fees.weightHeavy;
                ui.wLabel.textContent = w <= 500 ? "Легкий вантаж" : "Важкий вантаж";
             } else {
-               // ДАЛЕКА ВОЛИНЬ
                zoneDebug = "Далека Волинь";
                activeMinPrice = 5500; 
                if (w <= 500) {
@@ -232,8 +268,9 @@
                  else finalPrice += CONFIG.fees.weightHeavy;
                }
             }
+
+        // 3. ІНШІ ОБЛАСТІ
         } else {
-            // ІНШІ
             zoneDebug = "Інша область";
             rate = (w <= 500) ? CONFIG.rateLight : CONFIG.rateStandard;
             finalPrice = distKm * rate;
@@ -241,8 +278,7 @@
             if (w > 500 && w <= 1000) finalPrice += CONFIG.fees.weightMed;
             else if (w > 1000) finalPrice += CONFIG.fees.weightHeavy;
             
-            if (provinceKey === 'рівн') activeMinPrice = 6500;
-            else if (provinceKey === 'терно') activeMinPrice = 3500;
+            if (provinceKey === 'терно') activeMinPrice = 3500;
             else if (provinceKey === 'закар') activeMinPrice = 4000;
             else activeMinPrice = 2500;
         }
@@ -250,17 +286,16 @@
         let priceBeforeExtras = finalPrice;
         if (finalPrice < activeMinPrice) finalPrice = activeMinPrice;
         
-        // --- ГАБАРИТИ ---
+        // --- ГАБАРИТИ (ОНОВЛЕНО) ---
         let extraFee = 0;
         
-        if (l >= 6) {
-          // Якщо 6 метрів (більше 6 ми відсікли на старті)
-          extraFee = CONFIG.fees.sixMeterBonus; // 3500 грн
-          ui.dist.innerText = distKm.toFixed(0) + " км (Спецтранспорт)";
+        if (l > 5) {
+          extraFee = CONFIG.fees.lenSixMeter; // +2000 грн
+          ui.dist.innerText = distKm.toFixed(0) + " км (Макс. габарит)";
           ui.dist.className = "font-black text-red-600";
-        } else if (l > 4.05) {
-          extraFee = CONFIG.fees.longLoad; // 2000 грн
-          ui.dist.innerText = distKm.toFixed(0) + " км";
+        } else if (l > 4) {
+          extraFee = CONFIG.fees.lenFiveMeter; // +700 грн
+          ui.dist.innerText = distKm.toFixed(0) + " км (Довгомір 5м)";
           ui.dist.className = "font-black text-orange-500";
         } else {
           ui.dist.innerText = distKm.toFixed(0) + " км";
