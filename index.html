@@ -137,16 +137,24 @@
       });
     }
 
-    document.getElementById('sendBtn').addEventListener('click', () => {
-      if (lastResult) {
-        const text = `Львів - ${lastResult.city}\nВага ${lastResult.weight} кг\nЦіна ${lastResult.price}\nРозраховано через @woodagencydeliverybot`;
-        const shareUrl = `https://t.me/share/url?url=${encodeURIComponent(text)}`;
-        tg.openTelegramLink(shareUrl);
-      }
-    });
-
+   document.getElementById('sendBtn').addEventListener('click', () => {
+  if (lastResult) {
+    const text = `Львів - ${lastResult.city}\nВага ${lastResult.weight} кг\nЦіна ${lastResult.price}\nРозраховано через @woodagencydeliverybot`;
+    
+    // Спеціальне посилання для шерингу всередині Telegram
+    const shareUrl = `https://t.me/share/url?url=${encodeURIComponent(text)}`;
+    
+    // Використовуємо метод WebApp для відкриття посилання всередині додатка
+    if (window.Telegram && window.Telegram.WebApp) {
+        window.Telegram.WebApp.openTelegramLink(shareUrl);
+    } else {
+        window.open(shareUrl, '_blank');
+    }
+  }
+});
     document.getElementById('calcBtn').addEventListener('click', calculateDelivery);
   </script>
   <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyDFR9n0yr9SEPDWGyH1G_dDJBit7bxvy_Y&libraries=places&callback=initMaps" async defer></script>
 </body>
 </html>
+
