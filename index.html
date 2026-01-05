@@ -96,18 +96,23 @@
     }
     window.initMaps = initMaps;
 
-    async function calculateDelivery() {
-      const ui = {
-        cityInput: document.getElementById('city'), weight: document.getElementById('weight'),
-        length: document.getElementById('length'), result: document.getElementById('resultCard'),
-        price: document.getElementById('finalPrice'), dist: document.getElementById('distDisplay'),
-        regionLab: document.getElementById('regionLabel'), err: document.getElementById('errorBox'), 
-        btn: document.getElementById('calcBtn'), warning: document.getElementById('specialWarning'),
-        warningText: document.getElementById('warningText')
-      };
+    // Оновлений блок відправки для груп та приватів
+const tg = window.Telegram.WebApp;
+const resultData = {
+    city: selectedPlace.name,
+    weight: ui.weight.value,
+    dist: distKm.toFixed(0),
+    price: rounded.toLocaleString('uk-UA') + " грн",
+    user: tg.initDataUnsafe?.user?.username || "Користувач"
+};
 
-      if (!selectedPlace) { ui.err.innerText = "⚠️ Оберіть місто зі списку!"; ui.err.classList.remove('hidden'); return; }
+// Це спрацює в особистих повідомленнях
+if (tg.sendData) {
+    tg.sendData(JSON.stringify(resultData));
+}
 
+// Щоб вікно точно закрилося
+tg.close();
       ui.btn.disabled = true;
       ui.btn.innerHTML = `<span class="loader"></span>`;
       
@@ -177,3 +182,4 @@
   <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyDFR9n0yr9SEPDWGyH1G_dDJBit7bxvy_Y&libraries=places&callback=initMaps" async defer></script>
 </body>
 </html>
+
