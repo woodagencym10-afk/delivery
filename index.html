@@ -116,18 +116,15 @@
       "нововолинськ", "novovolynsk", "торчин", "torchyn"
     ];
     
-    // 1. СПИСОК "КЛЕСІВ/БЕРЕЗНЕ" -> (Ціна до Рівного)
     const restrictedKeywords = [
       "клесів", "klesiv", "пугач", "puhach", "гранітне", "hranitne",
       "федорівка", "fedorivka", "вири", "vyry", "віри", "viry",
       "олексіївка", "oleksiivka", "березне", "berezne"
     ];
 
-    // 2. СПИСОК "ВАРАШ"
     const varashKeywords = ["вараш", "varash", "кузнецовськ", "kuznetsovsk"];
-
-    // 3. СПИСОК "ЗАЛІЩИКИ"
     const zalishchykyKeywords = ["заліщики", "zalishchyky"];
+    const shumskKeywords = ["шумськ", "shumsk"]; // Нове
 
     let mapService, autocomplete, selectedPlace = null;
 
@@ -173,7 +170,7 @@
       
       const l = parseFloat(ui.length.value) || 0;
       if (l > 6) {
-        ui.err.innerHTML = "⛔ <strong>Ми не возимо вантажі довші за 6 метрів!</strong><br>Будь ласка, введіть коректну довжину.";
+        ui.err.innerHTML = "⛔ <strong>Ми не возимо вантажі довші за 6 метрів!</strong>";
         ui.err.classList.remove('hidden');
         return;
       }
@@ -181,7 +178,6 @@
       ui.btn.disabled = true;
       ui.btn.innerHTML = `<span class="loader"></span>`;
 
-      // 1. Аналіз регіону та назви
       let provinceLong = "Не визначено";
       let provinceKey = "";
       const fullAddress = (selectedPlace.formatted_address || "").toLowerCase();
@@ -191,7 +187,6 @@
       let isForcedCloseVolyn = false;
       closeVolynKeywords.forEach(k => { if (fullAddress.includes(k) || nameOnly.includes(k)) isForcedCloseVolyn = true; });
 
-      // Перевірки за списками
       let isRestricted = false;
       restrictedKeywords.forEach(k => { if (fullAddress.includes(k) || nameOnly.includes(k)) isRestricted = true; });
 
@@ -201,7 +196,10 @@
       let isZalishchyky = false;
       zalishchykyKeywords.forEach(k => { if (fullAddress.includes(k) || nameOnly.includes(k)) isZalishchyky = true; });
 
-      const isRivneCity = nameOnly.trim() === "рівне" || nameOnly.trim() === "rivne" || fullAddress.startsWith("рівне,") || fullAddress.startsWith("rivne,");
+      let isShumsk = false;
+      shumskKeywords.forEach(k => { if (fullAddress.includes(k) || nameOnly.includes(k)) isShumsk = true; });
+
+      const isRivneCity = nameOnly.trim() === "рівне" || nameOnly.trim() === "rivne" || fullAddress.startsWith("рівне,");
       const isTernopilCity = nameOnly.trim() === "тернопіль" || nameOnly.trim() === "ternopil" || fullAddress.startsWith("тернопіль,");
 
       if (selectedPlace.address_components) {
@@ -210,15 +208,14 @@
             provinceLong = c.long_name;
             const ln = provinceLong.toLowerCase();
             if (ln.includes("львів")) provinceKey = "львів";
-            else if (ln.includes("волин") || ln.includes("volyn")) provinceKey = "волин";
-            else if (ln.includes("рівн") || ln.includes("rivne")) provinceKey = "рівн";
-            else if (ln.includes("терно") || ln.includes("terno")) provinceKey = "терно";
-            else if (ln.includes("закар") || ln.includes("zakar")) provinceKey = "закар";
+            else if (ln.includes("волин")) provinceKey = "волин";
+            else if (ln.includes("рівн")) provinceKey = "рівн";
+            else if (ln.includes("терно")) provinceKey = "терно";
+            else if (ln.includes("закар")) provinceKey = "закар";
           }
         }
       }
       ui.regionLab.textContent = provinceLong;
-
       const w = parseFloat(ui.weight.value) || 0;
 
       try {
@@ -233,162 +230,96 @@
           });
         });
 
-        // ================= ЛОГІКА =================
         let finalPrice = 0;
         let activeMinPrice = 2500;
         let rate = CONFIG.rateStandard;
         let zoneDebug = "";
 
-        // ПРІОРИТЕТИ (Спочатку спец. міста)
-
-        // 1. ВАРАШ (6000-7000)
         if (isVarash) {
-            zoneDebug = "ВАРАШ (Фікс)";
-            ui.warningText.innerHTML = "Для цього напрямку рекомендуємо порівняти вартість у <strong>'Delivery'</strong> — це може бути вигідніше. Якщо ж вам зручніше нашим авто — фіксована ціна вказана нижче.";
+            zoneDebug = "ВАРАШ";
+            ui.warningText.innerHTML = "Радимо порівняти з Delivery.";
             ui.warning.classList.remove('hidden');
-            if (w <= 1000) {
-                 finalPrice = 6000; ui.wLabel.textContent = "Ціна до м. Вараш (<1т)";
-            } else {
-                 finalPrice = 7000; ui.wLabel.textContent = "Ціна до м. Вараш (>1т)";
-            }
+            finalPrice = w <= 1000 ? 6000 : 7000;
             activeMinPrice = finalPrice;
-
-        // 2. ЗАЛІЩИКИ (5000)
         } else if (isZalishchyky) {
-            zoneDebug = "ЗАЛІЩИКИ (Фікс)";
-            if (w <= 1000) {
-                 finalPrice = 5000; 
-                 ui.wLabel.textContent = "Ціна до м. Заліщики (<1т)";
-            } else {
-                 finalPrice = 6000; 
-                 ui.wLabel.textContent = "Ціна до м. Заліщики (>1т)";
-            }
+            zoneDebug = "ЗАЛІЩИКИ";
+            finalPrice = w <= 1000 ? 5000 : 6000;
             activeMinPrice = finalPrice;
-
-        // 3. КЛЕСІВ/БЕРЕЗНЕ -> Рівне
+        } else if (isShumsk) {
+            zoneDebug = "ШУМСЬК";
+            finalPrice = w <= 1000 ? 3000 : 4500;
+            activeMinPrice = finalPrice;
         } else if (isRestricted) {
-             zoneDebug = "ОБМЕЖЕННЯ (Клесів/Березне)";
-             ui.warningText.innerHTML = "Скористайтесь обрахунком вартості <strong>Delivery</strong> або ж можливий самовивіз з Рівного. <div class='mt-2 pt-2 border-t border-amber-200 font-bold text-slate-900'>Нижче вказана вартість доставки до м. Рівне:</div>";
+             zoneDebug = "ОБМЕЖЕННЯ (Рівне)";
+             ui.warningText.innerHTML = "Радимо Delivery або самовивіз.";
              ui.warning.classList.remove('hidden');
-             
-             if (w <= 500) { finalPrice = 4500; ui.wLabel.textContent = "Ціна до м. Рівне (<500кг)"; } 
-             else if (w < 1000) { finalPrice = 5000; ui.wLabel.textContent = "Ціна до м. Рівне (<1т)"; } 
-             else { finalPrice = 6000; ui.wLabel.textContent = "Ціна до м. Рівне (>1т)"; }
+             if (w <= 500) finalPrice = 4500;
+             else if (w < 1000) finalPrice = 5000;
+             else finalPrice = 6000;
              activeMinPrice = finalPrice;
-
-        // 4. РІВНЕНСЬКА ОБЛАСТЬ
         } else if (provinceKey === 'рівн') {
             if (isRivneCity) {
-                zoneDebug = "м. Рівне (Фікс)";
-                if (w <= 500) { finalPrice = 4500; ui.wLabel.textContent = "Вага до 500 кг"; } 
-                else if (w < 1000) { finalPrice = 5000; ui.wLabel.textContent = "Вага 501-999 кг"; } 
-                else { finalPrice = 6000; ui.wLabel.textContent = "Вага від 1000 кг"; }
+                finalPrice = w <= 500 ? 4500 : (w < 1000 ? 5000 : 6000);
                 activeMinPrice = finalPrice; 
             } else {
-                zoneDebug = "Рівненська обл (Км)";
                 rate = (w <= 500) ? CONFIG.rateLight : CONFIG.rateStandard;
                 finalPrice = distKm * rate;
-                ui.wLabel.textContent = w <= 500 ? "Легкий вантаж" : "Важкий вантаж";
                 if (w > 500 && w <= 1000) finalPrice += CONFIG.fees.weightMed;
                 else if (w > 1000) finalPrice += CONFIG.fees.weightHeavy;
                 activeMinPrice = 4500; 
             }
-
-        // 5. ВОЛИНЬ
         } else if (provinceKey === 'волин') {
             if (isForcedCloseVolyn || distKm <= 235) {
-               zoneDebug = "Ближня Волинь";
                rate = (w <= 500) ? CONFIG.rateLight : CONFIG.rateStandard;
                finalPrice = distKm * rate;
                activeMinPrice = isLutsk ? 2500 : 3500;
                if (w > 500 && w <= 1000) finalPrice += CONFIG.fees.weightMed;
                else if (w > 1000) finalPrice += CONFIG.fees.weightHeavy;
-               ui.wLabel.textContent = w <= 500 ? "Легкий вантаж" : "Важкий вантаж";
             } else {
-               zoneDebug = "Далека Волинь";
                activeMinPrice = 5500; 
-               if (w <= 500) { rate = CONFIG.rateLight; ui.wLabel.textContent = "Легкий вантаж (Далеко)"; } 
-               else { rate = CONFIG.rateFarVolyn; ui.wLabel.textContent = "Важкий вантаж (Далеко)"; }
+               rate = w <= 500 ? CONFIG.rateLight : CONFIG.rateFarVolyn;
                finalPrice = distKm * rate;
-               if (w > 500) { if (w <= 1000) finalPrice += CONFIG.fees.weightMed; else finalPrice += CONFIG.fees.weightHeavy; }
+               if (w > 500) finalPrice += (w <= 1000 ? CONFIG.fees.weightMed : CONFIG.fees.weightHeavy);
             }
-
-        // 6. ТЕРНОПІЛЬСЬКА ОБЛАСТЬ
         } else if (provinceKey === 'терно') {
             if (isTernopilCity) {
-                // МІСТО ТЕРНОПІЛЬ (Фікс)
-                zoneDebug = "м. Тернопіль (Фікс)";
-                if (w <= 500) { finalPrice = 2500; ui.wLabel.textContent = "Вага до 500 кг"; } 
-                else if (w < 1000) { finalPrice = 3000; ui.wLabel.textContent = "Вага 501-999 кг"; } 
-                else { finalPrice = 5000; ui.wLabel.textContent = "Вага від 1000 кг"; }
+                finalPrice = w <= 500 ? 2500 : (w < 1000 ? 3000 : 5000);
                 activeMinPrice = finalPrice;
             } else {
-                // ТЕРНОПІЛЬСЬКА ОБЛАСТЬ (РЕШТА)
-                // ТУТ БУЛО ЗМІНЕНО МІНІМАЛКУ НА 3500
-                zoneDebug = "Тернопільська обл (Км)";
                 rate = (w <= 500) ? CONFIG.rateLight : CONFIG.rateStandard;
                 finalPrice = distKm * rate;
-                ui.wLabel.textContent = w <= 500 ? "Легкий вантаж" : "Важкий вантаж";
                 if (w > 500 && w <= 1000) finalPrice += CONFIG.fees.weightMed;
                 else if (w > 1000) finalPrice += CONFIG.fees.weightHeavy;
-                
-                activeMinPrice = 3500; // НОВА МІНІМАЛКА ДЛЯ ОБЛАСТІ
+                activeMinPrice = 3500; 
             }
-
-        // 7. ІНШІ ОБЛАСТІ
         } else {
-            zoneDebug = "Інша область";
             rate = (w <= 500) ? CONFIG.rateLight : CONFIG.rateStandard;
             finalPrice = distKm * rate;
-            ui.wLabel.textContent = w <= 500 ? "Легкий вантаж" : "Важкий вантаж";
             if (w > 500 && w <= 1000) finalPrice += CONFIG.fees.weightMed;
             else if (w > 1000) finalPrice += CONFIG.fees.weightHeavy;
-            if (provinceKey === 'закар') activeMinPrice = 4000;
-            else activeMinPrice = 2500;
+            activeMinPrice = provinceKey === 'закар' ? 4000 : 2500;
         }
 
-        let priceBeforeExtras = finalPrice;
         if (finalPrice < activeMinPrice) finalPrice = activeMinPrice;
         
-        // --- ГАБАРИТИ ---
         let extraFee = 0;
-        if (l > 5) {
-          extraFee = CONFIG.fees.lenSixMeter; 
-          ui.dist.innerText = distKm.toFixed(0) + " км (Макс. габарит)";
-          ui.dist.className = "font-black text-red-600";
-        } else if (l > 4) {
-          extraFee = CONFIG.fees.lenFiveMeter; 
-          ui.dist.innerText = distKm.toFixed(0) + " км (Довгомір 5м)";
-          ui.dist.className = "font-black text-orange-500";
-        } else {
-          ui.dist.innerText = distKm.toFixed(0) + " км";
-          ui.dist.className = "font-black text-slate-900";
-        }
+        if (l > 5) extraFee = CONFIG.fees.lenSixMeter;
+        else if (l > 4) extraFee = CONFIG.fees.lenFiveMeter;
         
         finalPrice += extraFee;
-
-        // DEBUG INFO
-        ui.dbgZone.textContent = zoneDebug;
-        ui.dbgDist.textContent = distKm.toFixed(1) + " км";
-        ui.dbgCalc.innerHTML = `База: ${Math.round(priceBeforeExtras)} -> Мін: ${activeMinPrice}<br>Доплата довжину: ${extraFee} грн`;
-        ui.dbgPanel.classList.remove('hidden');
-
+        ui.dist.innerText = distKm.toFixed(0) + " км";
         const rounded = Math.ceil(finalPrice / 500) * 500;
         ui.price.textContent = rounded.toLocaleString('uk-UA') + " грн";
         ui.result.classList.remove('hidden');
-
       } catch (e) {
-        ui.err.innerHTML = "Помилка API.";
         ui.err.classList.remove('hidden');
       } finally {
         ui.btn.disabled = false;
         ui.btn.innerHTML = "Розрахувати";
       }
     }
-
     document.getElementById('calcBtn').addEventListener('click', calculateDelivery);
   </script>
-  
   <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyDFR9n0yr9SEPDWGyH1G_dDJBit7bxvy_Y&libraries=places&callback=initMaps" async defer></script>
 </body>
 </html>
