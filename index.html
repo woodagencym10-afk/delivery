@@ -67,12 +67,21 @@
       </button>
 
       <div id="resultCard" class="hidden fade-in mt-6 border-2 border-slate-50 rounded-[2rem] p-6 bg-slate-50/50 relative">
+        
+        <div id="specialWarning" class="hidden mb-5 p-4 bg-amber-100 border border-amber-200 rounded-2xl text-amber-900 text-[11px] leading-relaxed font-medium">
+            <strong class="block text-amber-800 uppercase text-[10px] tracking-widest mb-1">⚠️ Увага</strong>
+            Скористайтесь обрахунком вартості <strong>Delivery</strong> або ж можливий самовивіз з Рівного.
+            <div class="mt-2 pt-2 border-t border-amber-200 font-bold text-slate-900">
+                Нижче вказана вартість доставки до м. Рівне:
+            </div>
+        </div>
+
         <div class="text-slate-400 text-[10px] font-black uppercase mb-2 tracking-widest">Орієнтовна вартість</div>
         <div id="finalPrice" class="text-4xl font-black text-slate-900 tracking-tighter mb-4">0 грн</div>
         
         <div class="space-y-3 border-t border-slate-200/60 pt-4">
           <div class="flex justify-between items-center text-xs">
-             <span class="text-slate-500 font-medium">Відстань:</span>
+             <span class="text-slate-500 font-medium">Відстань (факт):</span>
              <span id="distDisplay" class="font-black text-slate-900">0 км</span>
           </div>
           <div class="flex justify-between items-center text-xs">
@@ -99,8 +108,8 @@
       fees: { 
         weightMed: 1500, 
         weightHeavy: 3000, 
-        lenFiveMeter: 700,   // Доплата 4.01-5м
-        lenSixMeter: 2000    // Доплата 5.01-6м
+        lenFiveMeter: 700,   
+        lenSixMeter: 2000    
       }
     };
 
@@ -110,8 +119,16 @@
       "нововолинськ", "novovolynsk", "торчин", "torchyn"
     ];
     
-    // Ключові слова для ідентифікації саме МІСТА Рівне
-    const rivneCityKeywords = ["рівне", "rivne"];
+    // СПИСОК МІСТ З ОБМЕЖЕННЯМИ (Тільки самовивіз з Рівного)
+    // Додано: Клесів, Пугач, Гранітне, Федорівка, Вири (Віри), Олексіївка
+    const restrictedKeywords = [
+      "клесів", "klesiv", 
+      "пугач", "puhach",
+      "гранітне", "hranitne",
+      "федорівка", "fedorivka",
+      "вири", "vyry", "віри", "viry",
+      "олексіївка", "oleksiivka"
+    ];
 
     let mapService, autocomplete, selectedPlace = null;
 
@@ -128,6 +145,7 @@
         selectedPlace = place;
         document.getElementById('errorBox').classList.add('hidden');
         document.getElementById('city').classList.remove('border-red-500');
+        document.getElementById('specialWarning').classList.add('hidden');
       });
     }
     window.initMaps = initMaps;
@@ -139,6 +157,7 @@
         price: document.getElementById('finalPrice'), dist: document.getElementById('distDisplay'),
         regionLab: document.getElementById('regionLabel'), wLabel: document.getElementById('weightLabel'),
         err: document.getElementById('errorBox'), btn: document.getElementById('calcBtn'),
+        warning: document.getElementById('specialWarning'),
         dbgPanel: document.getElementById('debugPanel'), dbgZone: document.getElementById('dbgZone'), 
         dbgDist: document.getElementById('dbgDist'), dbgCalc: document.getElementById('dbgCalc')
       };
@@ -150,6 +169,7 @@
       }
 
       ui.err.classList.add('hidden');
+      ui.warning.classList.add('hidden'); // Скидаємо попередження
       
       const l = parseFloat(ui.length.value) || 0;
       if (l > 6) {
@@ -167,13 +187,14 @@
       const fullAddress = (selectedPlace.formatted_address || "").toLowerCase();
       const nameOnly = (selectedPlace.name || "").toLowerCase();
       
-      // Перевірки
       const isLutsk = fullAddress.includes("луцьк") || nameOnly.includes("луцьк");
       let isForcedCloseVolyn = false;
       closeVolynKeywords.forEach(k => { if (fullAddress.includes(k) || nameOnly.includes(k)) isForcedCloseVolyn = true; });
 
-      // Перевірка чи це саме місто Рівне (щоб відділити від області)
-      // Логіка: якщо назва міста "Рівне" або адреса починається з "Рівне,"
+      // Перевірка на ОБМЕЖЕНІ МІСТА (Клесівський напрямок)
+      let isRestricted = false;
+      restrictedKeywords.forEach(k => { if (fullAddress.includes(k) || nameOnly.includes(k)) isRestricted = true; });
+
       const isRivneCity = nameOnly.trim() === "рівне" || nameOnly.trim() === "rivne" || fullAddress.startsWith("рівне,") || fullAddress.startsWith("rivne,");
 
       if (selectedPlace.address_components) {
@@ -211,12 +232,29 @@
         let rate = CONFIG.rateStandard;
         let zoneDebug = "";
 
-        // 1. РІВНЕНСЬКА ОБЛАСТЬ (НОВА ЛОГІКА)
-        if (provinceKey === 'рівн') {
+        // 0. ПРІОРИТЕТ: ОБМЕЖЕНІ МІСТА (КЛЕСІВСЬКИЙ НАПРЯМОК)
+        if (isRestricted) {
+             zoneDebug = "ОБМЕЖЕННЯ (Клесів/Гранітне)";
+             ui.warning.classList.remove('hidden'); // Показуємо жовтий блок
+             
+             // Рахуємо ціну як до РІВНОГО (місто)
+             if (w <= 500) {
+                 finalPrice = 4500;
+                 ui.wLabel.textContent = "Ціна до м. Рівне (<500кг)";
+             } else if (w < 1000) {
+                 finalPrice = 5000;
+                 ui.wLabel.textContent = "Ціна до м. Рівне (<1т)";
+             } else {
+                 finalPrice = 6000;
+                 ui.wLabel.textContent = "Ціна до м. Рівне (>1т)";
+             }
+             activeMinPrice = finalPrice;
+
+        // 1. РІВНЕНСЬКА ОБЛАСТЬ
+        } else if (provinceKey === 'рівн') {
             if (isRivneCity) {
-                // САМЕ МІСТО РІВНЕ - ФІКСОВАНІ ЦІНИ
-                zoneDebug = "м. Рівне (Спецтариф)";
-                
+                // САМЕ МІСТО РІВНЕ
+                zoneDebug = "м. Рівне (Фікс)";
                 if (w <= 500) {
                     finalPrice = 4500;
                     ui.wLabel.textContent = "Вага до 500 кг";
@@ -227,19 +265,18 @@
                     finalPrice = 6000;
                     ui.wLabel.textContent = "Вага від 1000 кг";
                 }
-                activeMinPrice = finalPrice; // Тут мінімум дорівнює фіксу
+                activeMinPrice = finalPrice; 
             } else {
-                // РІВНЕНСЬКА ОБЛАСТЬ (не місто)
+                // ОБЛАСТЬ
                 zoneDebug = "Рівненська обл (Км)";
                 rate = (w <= 500) ? CONFIG.rateLight : CONFIG.rateStandard;
                 finalPrice = distKm * rate;
                 
-                // Доплата за вагу по області
                 ui.wLabel.textContent = w <= 500 ? "Легкий вантаж" : "Важкий вантаж";
                 if (w > 500 && w <= 1000) finalPrice += CONFIG.fees.weightMed;
                 else if (w > 1000) finalPrice += CONFIG.fees.weightHeavy;
 
-                activeMinPrice = 4500; // Базовий мінімум для області
+                activeMinPrice = 4500; 
             }
 
         // 2. ВОЛИНЬ
@@ -286,15 +323,15 @@
         let priceBeforeExtras = finalPrice;
         if (finalPrice < activeMinPrice) finalPrice = activeMinPrice;
         
-        // --- ГАБАРИТИ (ОНОВЛЕНО) ---
+        // --- ГАБАРИТИ ---
         let extraFee = 0;
         
         if (l > 5) {
-          extraFee = CONFIG.fees.lenSixMeter; // +2000 грн
+          extraFee = CONFIG.fees.lenSixMeter; 
           ui.dist.innerText = distKm.toFixed(0) + " км (Макс. габарит)";
           ui.dist.className = "font-black text-red-600";
         } else if (l > 4) {
-          extraFee = CONFIG.fees.lenFiveMeter; // +700 грн
+          extraFee = CONFIG.fees.lenFiveMeter; 
           ui.dist.innerText = distKm.toFixed(0) + " км (Довгомір 5м)";
           ui.dist.className = "font-black text-orange-500";
         } else {
