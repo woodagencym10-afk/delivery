@@ -6,7 +6,7 @@ from aiogram.filters import Command
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, WebAppInfo
 
 # ТОКЕН ТА ПОСИЛАННЯ (мають бути саме так, у лапках)
-BOT_TOKEN = "8311534959:AAEuqXgWmBJ5tnWT_NL7fMmYl9tHE3weXaY"
+BOT_TOKEN = "8540043742:AAG0jad0zre2tfJxusA-DgW05KUX62l0lWc"
 WEB_APP_URL = "https://woodagencym10-afk.github.io/delivery/"
 
 logging.basicConfig(level=logging.INFO)
