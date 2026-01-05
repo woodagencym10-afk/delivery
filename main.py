@@ -5,7 +5,7 @@ from aiogram import Bot, Dispatcher, types, F
 from aiogram.filters import Command
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, WebAppInfo
 
-BOT_TOKEN = "8540043742:AAG0jad0zre2tfJxusA-DgW05KUX62l0lWc"
+BOT_TOKEN = "8540043742:AAHF2dJuJLAq16qM11-gmKfBqsEjeC70imo"
 WEB_APP_URL = "https://woodagencym10-afk.github.io/delivery/"
 
 logging.basicConfig(level=logging.INFO)
