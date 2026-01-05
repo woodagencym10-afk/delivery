@@ -10,7 +10,7 @@
     .fade-in { animation: fadeIn 0.4s ease-out forwards; opacity: 0; transform: translateY(10px); }
     @keyframes fadeIn { to { opacity: 1; transform: translateY(0); } }
     .loader { border: 2px solid #f3f3f3; border-top: 2px solid #0f172a; border-radius: 50%; width: 18px; height: 18px; animation: spin 1s linear infinite; display: inline-block; }
-    @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    @keyframes spin { to { transform: rotate(360deg); } }
     .pac-container { z-index: 99999 !important; border-radius: 0.75rem; margin-top: 8px; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1); border: 1px solid #e2e8f0; font-family: inherit; }
   </style>
 </head>
@@ -37,11 +37,11 @@
         <div class="grid grid-cols-2 gap-4">
           <div>
             <label class="block text-[10px] font-black text-slate-400 uppercase mb-2 ml-1 tracking-widest">Вага (кг)</label>
-            <input id="weight" type="number" class="w-full bg-white border-2 border-slate-100 rounded-2xl px-5 py-4 text-sm outline-none focus:border-slate-900 transition-all" placeholder="Напр. 100" />
+            <input id="weight" type="number" class="w-full bg-white border-2 border-slate-100 rounded-2xl px-5 py-4 text-sm outline-none" placeholder="100" />
           </div>
           <div>
             <label class="block text-[10px] font-black text-slate-400 uppercase mb-2 ml-1 tracking-widest">Довжина (м)</label>
-            <input id="length" type="number" step="0.1" max="6" class="w-full bg-white border-2 border-slate-100 rounded-2xl px-5 py-4 text-sm outline-none focus:border-slate-900 transition-all" placeholder="Макс. 6" />
+            <input id="length" type="number" step="0.1" max="6" class="w-full bg-white border-2 border-slate-100 rounded-2xl px-5 py-4 text-sm outline-none" placeholder="Макс. 6" />
           </div>
         </div>
       </div>
@@ -55,6 +55,7 @@
         <div id="finalPrice" class="text-4xl font-black text-slate-900 tracking-tighter mb-4">0 грн</div>
         <div class="space-y-3 border-t border-slate-200/60 pt-4 text-xs">
           <div class="flex justify-between"><span>Відстань:</span> <span id="distDisplay" class="font-black">0 км</span></div>
+          <div class="flex justify-between"><span>Регіон:</span> <span id="regionLabel" class="font-black">—</span></div>
         </div>
       </div>
       <div id="errorBox" class="hidden p-4 bg-red-50 text-red-600 text-[11px] font-bold rounded-2xl text-center mt-4"></div>
@@ -65,19 +66,27 @@
     const tg = window.Telegram.WebApp;
     tg.expand();
 
+    const CONFIG = {
+      rateStandard: 22, rateLight: 16, rateFarVolyn: 29,
+      fees: { weightMed: 1500, weightHeavy: 3000, lenFiveMeter: 700, lenSixMeter: 2000 }
+    };
+
+    const closeVolynKeywords = ["луцьк", "lutsk", "володимир", "volodymyr", "ковель", "kovel", "горохів", "horokhiv", "нововолинськ", "novovolynsk", "торчин", "torchyn"];
+    const restrictedKeywords = ["клесів", "klesiv", "пугач", "puhach", "гранітне", "hranitne", "федорівка", "fedorivka", "вири", "vyry", "віри", "viry", "березне", "berezne"];
+    const varashKeywords = ["вараш", "varash", "кузнецовськ", "kuznetsovsk"];
+    const zalishchykyKeywords = ["заліщики", "zalishchyky"];
+    const shumskKeywords = ["шумськ", "shumsk"];
+
     let mapService, autocomplete, selectedPlace = null;
 
-    // ФУНКЦІЯ ІНІЦІАЛІЗАЦІЇ КАРТ
     function initMaps() {
       mapService = new google.maps.DistanceMatrixService();
-      const input = document.getElementById("city");
-      autocomplete = new google.maps.places.Autocomplete(input, {
+      autocomplete = new google.maps.places.Autocomplete(document.getElementById("city"), {
         componentRestrictions: { country: "ua" },
-        fields: ["geometry", "formatted_address", "name"]
+        fields: ["address_components", "geometry", "formatted_address", "name"]
       });
       autocomplete.addListener("place_changed", () => {
         selectedPlace = autocomplete.getPlace();
-        console.log("Place selected:", selectedPlace.name);
       });
     }
 
@@ -86,12 +95,13 @@
         btn: document.getElementById('calcBtn'),
         price: document.getElementById('finalPrice'),
         dist: document.getElementById('distDisplay'),
+        regionLab: document.getElementById('regionLabel'),
         res: document.getElementById('resultCard'),
         err: document.getElementById('errorBox')
       };
 
       if (!selectedPlace) {
-        ui.err.innerText = "⚠️ Оберіть місто зі списку автодоповнення!";
+        ui.err.innerText = "⚠️ Оберіть місто!";
         ui.err.classList.remove('hidden');
         return;
       }
@@ -99,9 +109,6 @@
       ui.err.classList.add('hidden');
       ui.btn.disabled = true;
       ui.btn.innerHTML = `<span class="loader"></span>`;
-
-      const w = parseFloat(document.getElementById('weight').value) || 0;
-      const l = parseFloat(document.getElementById('length').value) || 0;
 
       try {
         const response = await new Promise((res, rej) => {
@@ -113,33 +120,85 @@
         });
 
         const distKm = response.rows[0].elements[0].distance.value / 1000;
+        const w = parseFloat(document.getElementById('weight').value) || 0;
+        const l = parseFloat(document.getElementById('length').value) || 0;
         
-        // Розрахунок
-        let rate = w > 500 ? 22 : 16;
-        let price = distKm * rate;
-        if (w > 500) price += 1500;
-        if (l > 4) price += 700;
+        let provinceKey = "";
+        let provinceLong = "Не визначено";
+        if (selectedPlace.address_components) {
+          selectedPlace.address_components.forEach(c => {
+            if (c.types.includes("administrative_area_level_1")) {
+              provinceLong = c.long_name;
+              const ln = provinceLong.toLowerCase();
+              if (ln.includes("львів")) provinceKey = "львів";
+              else if (ln.includes("волин")) provinceKey = "волин";
+              else if (ln.includes("рівн")) provinceKey = "рівн";
+              else if (ln.includes("терно")) provinceKey = "терно";
+            }
+          });
+        }
 
-        const rounded = Math.ceil(price / 500) * 500;
+        const nameOnly = (selectedPlace.name || "").toLowerCase();
+        let finalPrice = 0;
+        let activeMinPrice = 2500; // Твоя стандартна мінімалка
+        let rate = (w <= 500) ? CONFIG.rateLight : CONFIG.rateStandard;
+
+        // ПЕРЕВІРКА СПЕЦЗОН
+        if (varashKeywords.some(k => nameOnly.includes(k))) {
+            finalPrice = w <= 1000 ? 6000 : 7000;
+            activeMinPrice = finalPrice;
+        } else if (zalishchykyKeywords.some(k => nameOnly.includes(k))) {
+            finalPrice = w <= 1000 ? 5000 : 6000;
+            activeMinPrice = finalPrice;
+        } else if (shumskKeywords.some(k => nameOnly.includes(k))) {
+            finalPrice = w <= 1000 ? 3000 : 4500;
+            activeMinPrice = finalPrice;
+        } else if (restrictedKeywords.some(k => nameOnly.includes(k))) {
+            finalPrice = w <= 500 ? 4500 : (w < 1000 ? 5000 : 6000);
+            activeMinPrice = finalPrice;
+        } else {
+            // Звичайна логіка прорахунку
+            if (provinceKey === "волин" && distKm > 235 && !closeVolynKeywords.some(k => nameOnly.includes(k))) {
+                rate = w <= 500 ? CONFIG.rateLight : CONFIG.rateFarVolyn;
+                activeMinPrice = 5500;
+            } else if (provinceKey === "рівн") {
+                activeMinPrice = 4500;
+            } else if (provinceKey === "терно") {
+                activeMinPrice = 3500;
+            }
+            
+            finalPrice = distKm * rate;
+            if (w > 500 && w <= 1000) finalPrice += CONFIG.fees.weightMed;
+            else if (w > 1000) finalPrice += CONFIG.fees.weightHeavy;
+        }
+
+        // Застосування мінімальної ціни
+        if (finalPrice < activeMinPrice) finalPrice = activeMinPrice;
+        
+        // Доплата за довжину
+        if (l > 5) finalPrice += CONFIG.fees.lenSixMeter;
+        else if (l > 4) finalPrice += CONFIG.fees.lenFiveMeter;
+
+        const rounded = Math.ceil(finalPrice / 500) * 500;
         const finalPriceStr = rounded.toLocaleString('uk-UA') + " грн";
 
         ui.price.innerText = finalPriceStr;
         ui.dist.innerText = distKm.toFixed(0) + " км";
+        ui.regionLab.innerText = provinceLong;
         ui.res.classList.remove('hidden');
 
-        // ВІДПРАВКА В ТЕЛЕГРАМ
         if (tg.sendData) {
-            tg.sendData(JSON.stringify({
-                city: selectedPlace.name,
-                weight: w,
-                dist: distKm.toFixed(0),
-                price: finalPriceStr
-            }));
-            setTimeout(() => { tg.close(); }, 200);
+          tg.sendData(JSON.stringify({
+            city: selectedPlace.name,
+            weight: w,
+            dist: distKm.toFixed(0),
+            price: finalPriceStr
+          }));
+          setTimeout(() => tg.close(), 1000);
         }
 
       } catch (e) {
-        ui.err.innerText = "Помилка Google Maps. Перевірте з'єднання.";
+        ui.err.innerText = "Помилка розрахунку";
         ui.err.classList.remove('hidden');
       } finally {
         ui.btn.disabled = false;
