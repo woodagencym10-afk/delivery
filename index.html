@@ -3,64 +3,34 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Калькулятор Доставки</title>
+  <title>Калькулятор</title>
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
-    .fade-in { animation: fadeIn 0.4s ease-out forwards; opacity: 0; transform: translateY(10px); }
-    @keyframes fadeIn { to { opacity: 1; transform: translateY(0); } }
-    .loader { border: 2px solid #f3f3f3; border-top: 2px solid #0f172a; border-radius: 50%; width: 18px; height: 18px; animation: spin 1s linear infinite; display: inline-block; }
-    @keyframes spin { to { transform: rotate(360deg); } }
-    .pac-container { z-index: 99999 !important; border-radius: 0.75rem; border: 1px solid #e2e8f0; font-family: inherit; }
+    .pac-container { z-index: 99999 !important; border-radius: 8px; border: 1px solid #ccc; font-family: sans-serif; }
   </style>
 </head>
-<body class="bg-slate-100 font-sans min-h-screen flex items-center justify-center p-4">
+<body class="bg-gray-100 p-4">
 
-  <div class="w-full max-w-[460px] bg-white rounded-[2rem] shadow-2xl border border-slate-200 relative z-10">
-    <div class="bg-slate-900 p-8 text-center rounded-t-[2rem]">
-      <h1 class="text-2xl font-black text-white tracking-tight mb-1">Калькулятор Доставки</h1>
-      <p class="text-slate-400 text-[10px] uppercase tracking-[0.2em] font-bold">Західна Україна</p>
-    </div>
-
-    <div class="p-8 space-y-6">
+  <div class="max-w-md mx-auto bg-white rounded-xl shadow-md overflow-hidden">
+    <div class="p-6">
+      <h2 class="text-xl font-bold mb-4 text-center">Калькулятор доставки</h2>
+      
       <div class="space-y-4">
-        <div>
-           <label class="block text-[10px] font-black text-slate-400 uppercase mb-2 ml-1 tracking-widest">Звідки</label>
-           <input type="text" value="Львів" disabled class="w-full bg-slate-50 border border-slate-200 text-slate-500 rounded-2xl px-5 py-4 text-sm font-bold cursor-not-allowed" />
-        </div>
-        <div class="relative">
-          <label class="block text-[10px] font-black text-slate-400 uppercase mb-2 ml-1 tracking-widest">Куди</label>
-          <input id="city" type="text" class="w-full bg-white border-2 border-slate-100 rounded-2xl px-5 py-4 text-sm outline-none focus:border-slate-900 transition-all placeholder:text-slate-300" placeholder="Введіть місто..." autocomplete="off" />
-        </div>
-        <div class="grid grid-cols-2 gap-4">
-          <div>
-            <label class="block text-[10px] font-black text-slate-400 uppercase mb-2 ml-1 tracking-widest">Вага (кг)</label>
-            <input id="weight" type="number" class="w-full bg-white border-2 border-slate-100 rounded-2xl px-5 py-4 text-sm outline-none" placeholder="100" />
-          </div>
-          <div>
-            <label class="block text-[10px] font-black text-slate-400 uppercase mb-2 ml-1 tracking-widest">Довжина (м)</label>
-            <input id="length" type="number" step="0.1" class="w-full bg-white border-2 border-slate-100 rounded-2xl px-5 py-4 text-sm outline-none" placeholder="Макс. 6" />
-          </div>
-        </div>
-      </div>
-
-      <button id="calcBtn" class="w-full bg-slate-900 text-white font-black py-5 rounded-2xl shadow-xl active:scale-[0.97] text-sm uppercase tracking-widest flex justify-center items-center gap-3">
-        <span>Розрахувати</span>
-      </button>
-
-      <div id="resultCard" class="hidden fade-in mt-6 border-2 border-slate-50 rounded-[2rem] p-6 bg-slate-50/50 space-y-4">
-        <div>
-            <div class="text-slate-400 text-[10px] font-black uppercase mb-1">Орієнтовна вартість</div>
-            <div id="finalPrice" class="text-4xl font-black text-slate-900">0 грн</div>
-            <div id="distDisplay" class="text-xs font-bold text-slate-500">0 км</div>
-        </div>
+        <input id="city" type="text" class="w-full border p-3 rounded" placeholder="Куди (місто)..." autocomplete="off" />
+        <input id="weight" type="number" class="w-full border p-3 rounded" placeholder="Вага (кг)" />
+        <input id="length" type="number" step="0.1" class="w-full border p-3 rounded" placeholder="Довжина (м)" />
         
-        <button id="sendBtn" class="w-full bg-blue-600 text-white font-bold py-4 rounded-xl shadow-lg active:scale-[0.97] text-xs uppercase tracking-widest">
-            Надіслати в чат 🚀
-        </button>
+        <button id="calcBtn" class="w-full bg-black text-white py-3 rounded font-bold">РОЗРАХУВАТИ</button>
       </div>
 
-      <div id="errorBox" class="hidden p-4 bg-red-50 text-red-600 text-[11px] font-bold rounded-2xl text-center mt-4"></div>
+      <div id="resultCard" class="hidden mt-6 p-4 bg-gray-50 border rounded-lg">
+        <p class="text-sm text-gray-600">Результат:</p>
+        <div id="finalPrice" class="text-2xl font-bold my-2">0 грн</div>
+        <div id="distDisplay" class="text-xs text-gray-500 mb-4">0 км</div>
+        
+        <button id="sendBtn" class="w-full bg-blue-600 text-white py-3 rounded font-bold">НАДІСЛАТИ В БЕСІДУ</button>
+      </div>
     </div>
   </div>
 
@@ -83,58 +53,49 @@
     }
 
     async function calculateDelivery() {
-      if (!selectedPlace) { alert("Оберіть місто!"); return; }
-
-      const btn = document.getElementById('calcBtn');
-      btn.innerHTML = `<span class="loader"></span>`;
+      if (!selectedPlace) return;
       
       const w = document.getElementById('weight').value || 0;
       const l = document.getElementById('length').value || 0;
 
-      try {
-        const response = await new Promise((res, rej) => {
-          mapService.getDistanceMatrix({
-            origins: ["Львів, Україна"],
-            destinations: [selectedPlace.formatted_address],
-            travelMode: 'DRIVING'
-          }, (r, s) => s === 'OK' ? res(r) : rej(s));
-        });
+      mapService.getDistanceMatrix({
+        origins: ["Львів, Україна"],
+        destinations: [selectedPlace.formatted_address],
+        travelMode: 'DRIVING'
+      }, (response, status) => {
+        if (status === 'OK') {
+          const distKm = response.rows[0].elements[0].distance.value / 1000;
+          let price = distKm * (w > 500 ? 22 : 16);
+          if (w > 500) price += 1500;
+          if (l > 4) price += 700;
+          if (price < 2500) price = 2500;
+          
+          const rounded = Math.ceil(price / 500) * 500;
+          const finalPriceStr = rounded.toLocaleString('uk-UA') + " грн";
 
-        const distKm = response.rows[0].elements[0].distance.value / 1000;
-        let price = distKm * (w > 500 ? 22 : 16);
-        if (w > 500) price += 1500;
-        if (l > 4) price += 700;
-        
-        const rounded = Math.ceil(price / 500) * 500;
-        const finalPriceStr = rounded.toLocaleString('uk-UA') + " грн";
-
-        // Зберігаємо результат для відправки
-        lastResult = {
+          lastResult = {
             city: selectedPlace.name,
             weight: w,
             dist: distKm.toFixed(0),
             price: finalPriceStr
-        };
+          };
 
-        document.getElementById('finalPrice').innerText = finalPriceStr;
-        document.getElementById('distDisplay').innerText = distKm.toFixed(0) + " км";
-        document.getElementById('resultCard').classList.remove('hidden');
-
-      } catch (e) {
-        alert("Помилка розрахунку");
-      } finally {
-        btn.innerHTML = "Розрахувати";
-      }
+          document.getElementById('finalPrice').innerText = finalPriceStr;
+          document.getElementById('distDisplay').innerText = distKm.toFixed(0) + " км";
+          document.getElementById('resultCard').classList.remove('hidden');
+        }
+      });
     }
 
-    // ВІДПРАВКА ДАНИХ ПРИ НАТИСКАННІ СИНЬОЇ КНОПКИ
     document.getElementById('sendBtn').addEventListener('click', () => {
-        if (lastResult && tg.sendData) {
-            tg.sendData(JSON.stringify(lastResult));
-            tg.close();
-        } else {
-            alert("Помилка відправки. Спробуйте в особистих повідомленнях бота.");
-        }
+      if (lastResult) {
+        // Текст без смайликів та картинок, як ти просила
+        const text = `Львів - ${lastResult.city}\nВага ${lastResult.weight} кг\nЦіна ${lastResult.price}\nРозраховано через @woodagencydeliverybot`;
+        
+        const shareUrl = `https://t.me/share/url?url=${encodeURIComponent(text)}`;
+        tg.openTelegramLink(shareUrl);
+        tg.close();
+      }
     });
 
     document.getElementById('calcBtn').addEventListener('click', calculateDelivery);
