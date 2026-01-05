@@ -120,14 +120,15 @@
     ];
     
     // СПИСОК МІСТ З ОБМЕЖЕННЯМИ (Тільки самовивіз з Рівного)
-    // Додано: Клесів, Пугач, Гранітне, Федорівка, Вири (Віри), Олексіївка
+    // Додано: Березне
     const restrictedKeywords = [
       "клесів", "klesiv", 
       "пугач", "puhach",
       "гранітне", "hranitne",
       "федорівка", "fedorivka",
       "вири", "vyry", "віри", "viry",
-      "олексіївка", "oleksiivka"
+      "олексіївка", "oleksiivka",
+      "березне", "berezne"
     ];
 
     let mapService, autocomplete, selectedPlace = null;
@@ -191,7 +192,7 @@
       let isForcedCloseVolyn = false;
       closeVolynKeywords.forEach(k => { if (fullAddress.includes(k) || nameOnly.includes(k)) isForcedCloseVolyn = true; });
 
-      // Перевірка на ОБМЕЖЕНІ МІСТА (Клесівський напрямок)
+      // Перевірка на ОБМЕЖЕНІ МІСТА (Клесівський напрямок + Березне)
       let isRestricted = false;
       restrictedKeywords.forEach(k => { if (fullAddress.includes(k) || nameOnly.includes(k)) isRestricted = true; });
 
@@ -232,9 +233,9 @@
         let rate = CONFIG.rateStandard;
         let zoneDebug = "";
 
-        // 0. ПРІОРИТЕТ: ОБМЕЖЕНІ МІСТА (КЛЕСІВСЬКИЙ НАПРЯМОК)
+        // 0. ПРІОРИТЕТ: ОБМЕЖЕНІ МІСТА (КЛЕСІВ / БЕРЕЗНЕ)
         if (isRestricted) {
-             zoneDebug = "ОБМЕЖЕННЯ (Клесів/Гранітне)";
+             zoneDebug = "ОБМЕЖЕННЯ (Delivery/Самовивіз)";
              ui.warning.classList.remove('hidden'); // Показуємо жовтий блок
              
              // Рахуємо ціну як до РІВНОГО (місто)
