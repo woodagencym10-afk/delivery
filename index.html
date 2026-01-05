@@ -123,8 +123,11 @@
       "олексіївка", "oleksiivka", "березне", "berezne"
     ];
 
-    // 2. СПИСОК "ВАРАШ" -> (Ціна 6000-7000)
+    // 2. СПИСОК "ВАРАШ"
     const varashKeywords = ["вараш", "varash", "кузнецовськ", "kuznetsovsk"];
+
+    // 3. СПИСОК "ЗАЛІЩИКИ"
+    const zalishchykyKeywords = ["заліщики", "zalishchyky"];
 
     let mapService, autocomplete, selectedPlace = null;
 
@@ -188,17 +191,17 @@
       let isForcedCloseVolyn = false;
       closeVolynKeywords.forEach(k => { if (fullAddress.includes(k) || nameOnly.includes(k)) isForcedCloseVolyn = true; });
 
-      // Перевірка КЛЕСІВ
+      // Перевірки за списками
       let isRestricted = false;
       restrictedKeywords.forEach(k => { if (fullAddress.includes(k) || nameOnly.includes(k)) isRestricted = true; });
 
-      // Перевірка ВАРАШ
       let isVarash = false;
       varashKeywords.forEach(k => { if (fullAddress.includes(k) || nameOnly.includes(k)) isVarash = true; });
 
+      let isZalishchyky = false;
+      zalishchykyKeywords.forEach(k => { if (fullAddress.includes(k) || nameOnly.includes(k)) isZalishchyky = true; });
+
       const isRivneCity = nameOnly.trim() === "рівне" || nameOnly.trim() === "rivne" || fullAddress.startsWith("рівне,") || fullAddress.startsWith("rivne,");
-      
-      // Перевірка ТЕРНОПІЛЬ (місто)
       const isTernopilCity = nameOnly.trim() === "тернопіль" || nameOnly.trim() === "ternopil" || fullAddress.startsWith("тернопіль,");
 
       if (selectedPlace.address_components) {
@@ -236,68 +239,62 @@
         let rate = CONFIG.rateStandard;
         let zoneDebug = "";
 
-        // 0. ПРІОРИТЕТ 1: ВАРАШ (6000-7000)
+        // ПРІОРИТЕТИ (Спочатку спец. міста)
+
+        // 1. ВАРАШ (6000-7000)
         if (isVarash) {
             zoneDebug = "ВАРАШ (Фікс)";
             ui.warningText.innerHTML = "Для цього напрямку рекомендуємо порівняти вартість у <strong>'Delivery'</strong> — це може бути вигідніше. Якщо ж вам зручніше нашим авто — фіксована ціна вказана нижче.";
             ui.warning.classList.remove('hidden');
-
             if (w <= 1000) {
-                 finalPrice = 6000;
-                 ui.wLabel.textContent = "Ціна до м. Вараш (<1т)";
+                 finalPrice = 6000; ui.wLabel.textContent = "Ціна до м. Вараш (<1т)";
             } else {
-                 finalPrice = 7000;
-                 ui.wLabel.textContent = "Ціна до м. Вараш (>1т)";
+                 finalPrice = 7000; ui.wLabel.textContent = "Ціна до м. Вараш (>1т)";
             }
             activeMinPrice = finalPrice;
 
-        // 0. ПРІОРИТЕТ 2: КЛЕСІВ/БЕРЕЗНЕ -> Рівне
+        // 2. ЗАЛІЩИКИ (5000)
+        } else if (isZalishchyky) {
+            zoneDebug = "ЗАЛІЩИКИ (Фікс)";
+            if (w <= 1000) {
+                 finalPrice = 5000; 
+                 ui.wLabel.textContent = "Ціна до м. Заліщики (<1т)";
+            } else {
+                 finalPrice = 6000; 
+                 ui.wLabel.textContent = "Ціна до м. Заліщики (>1т)";
+            }
+            activeMinPrice = finalPrice;
+
+        // 3. КЛЕСІВ/БЕРЕЗНЕ -> Рівне
         } else if (isRestricted) {
              zoneDebug = "ОБМЕЖЕННЯ (Клесів/Березне)";
              ui.warningText.innerHTML = "Скористайтесь обрахунком вартості <strong>Delivery</strong> або ж можливий самовивіз з Рівного. <div class='mt-2 pt-2 border-t border-amber-200 font-bold text-slate-900'>Нижче вказана вартість доставки до м. Рівне:</div>";
              ui.warning.classList.remove('hidden');
              
-             // Ціна як до Рівного
-             if (w <= 500) {
-                 finalPrice = 4500;
-                 ui.wLabel.textContent = "Ціна до м. Рівне (<500кг)";
-             } else if (w < 1000) {
-                 finalPrice = 5000;
-                 ui.wLabel.textContent = "Ціна до м. Рівне (<1т)";
-             } else {
-                 finalPrice = 6000;
-                 ui.wLabel.textContent = "Ціна до м. Рівне (>1т)";
-             }
+             if (w <= 500) { finalPrice = 4500; ui.wLabel.textContent = "Ціна до м. Рівне (<500кг)"; } 
+             else if (w < 1000) { finalPrice = 5000; ui.wLabel.textContent = "Ціна до м. Рівне (<1т)"; } 
+             else { finalPrice = 6000; ui.wLabel.textContent = "Ціна до м. Рівне (>1т)"; }
              activeMinPrice = finalPrice;
 
-        // 1. РІВНЕНСЬКА ОБЛАСТЬ
+        // 4. РІВНЕНСЬКА ОБЛАСТЬ
         } else if (provinceKey === 'рівн') {
             if (isRivneCity) {
                 zoneDebug = "м. Рівне (Фікс)";
-                if (w <= 500) {
-                    finalPrice = 4500;
-                    ui.wLabel.textContent = "Вага до 500 кг";
-                } else if (w < 1000) {
-                    finalPrice = 5000;
-                    ui.wLabel.textContent = "Вага 501-999 кг";
-                } else {
-                    finalPrice = 6000;
-                    ui.wLabel.textContent = "Вага від 1000 кг";
-                }
+                if (w <= 500) { finalPrice = 4500; ui.wLabel.textContent = "Вага до 500 кг"; } 
+                else if (w < 1000) { finalPrice = 5000; ui.wLabel.textContent = "Вага 501-999 кг"; } 
+                else { finalPrice = 6000; ui.wLabel.textContent = "Вага від 1000 кг"; }
                 activeMinPrice = finalPrice; 
             } else {
                 zoneDebug = "Рівненська обл (Км)";
                 rate = (w <= 500) ? CONFIG.rateLight : CONFIG.rateStandard;
                 finalPrice = distKm * rate;
-                
                 ui.wLabel.textContent = w <= 500 ? "Легкий вантаж" : "Важкий вантаж";
                 if (w > 500 && w <= 1000) finalPrice += CONFIG.fees.weightMed;
                 else if (w > 1000) finalPrice += CONFIG.fees.weightHeavy;
-
                 activeMinPrice = 4500; 
             }
 
-        // 2. ВОЛИНЬ
+        // 5. ВОЛИНЬ
         } else if (provinceKey === 'волин') {
             if (isForcedCloseVolyn || distKm <= 235) {
                zoneDebug = "Ближня Волинь";
@@ -310,50 +307,35 @@
             } else {
                zoneDebug = "Далека Волинь";
                activeMinPrice = 5500; 
-               if (w <= 500) {
-                 rate = CONFIG.rateLight; 
-                 ui.wLabel.textContent = "Легкий вантаж (Далеко)";
-               } else {
-                 rate = CONFIG.rateFarVolyn; 
-                 ui.wLabel.textContent = "Важкий вантаж (Далеко)";
-               }
+               if (w <= 500) { rate = CONFIG.rateLight; ui.wLabel.textContent = "Легкий вантаж (Далеко)"; } 
+               else { rate = CONFIG.rateFarVolyn; ui.wLabel.textContent = "Важкий вантаж (Далеко)"; }
                finalPrice = distKm * rate;
-               if (w > 500) {
-                 if (w <= 1000) finalPrice += CONFIG.fees.weightMed;
-                 else finalPrice += CONFIG.fees.weightHeavy;
-               }
+               if (w > 500) { if (w <= 1000) finalPrice += CONFIG.fees.weightMed; else finalPrice += CONFIG.fees.weightHeavy; }
             }
 
-        // 3. ТЕРНОПІЛЬСЬКА ОБЛАСТЬ (НОВЕ)
+        // 6. ТЕРНОПІЛЬСЬКА ОБЛАСТЬ
         } else if (provinceKey === 'терно') {
             if (isTernopilCity) {
-                // МІСТО ТЕРНОПІЛЬ
+                // МІСТО ТЕРНОПІЛЬ (Фікс)
                 zoneDebug = "м. Тернопіль (Фікс)";
-                if (w <= 500) {
-                    finalPrice = 2500;
-                    ui.wLabel.textContent = "Вага до 500 кг";
-                } else if (w < 1000) {
-                    finalPrice = 3000;
-                    ui.wLabel.textContent = "Вага 501-999 кг";
-                } else {
-                    finalPrice = 5000;
-                    ui.wLabel.textContent = "Вага від 1000 кг";
-                }
+                if (w <= 500) { finalPrice = 2500; ui.wLabel.textContent = "Вага до 500 кг"; } 
+                else if (w < 1000) { finalPrice = 3000; ui.wLabel.textContent = "Вага 501-999 кг"; } 
+                else { finalPrice = 5000; ui.wLabel.textContent = "Вага від 1000 кг"; }
                 activeMinPrice = finalPrice;
             } else {
-                // ТЕРНОПІЛЬСЬКА ОБЛАСТЬ
+                // ТЕРНОПІЛЬСЬКА ОБЛАСТЬ (РЕШТА)
+                // ТУТ БУЛО ЗМІНЕНО МІНІМАЛКУ НА 3500
                 zoneDebug = "Тернопільська обл (Км)";
                 rate = (w <= 500) ? CONFIG.rateLight : CONFIG.rateStandard;
                 finalPrice = distKm * rate;
-                
                 ui.wLabel.textContent = w <= 500 ? "Легкий вантаж" : "Важкий вантаж";
                 if (w > 500 && w <= 1000) finalPrice += CONFIG.fees.weightMed;
                 else if (w > 1000) finalPrice += CONFIG.fees.weightHeavy;
-
-                activeMinPrice = 2500; 
+                
+                activeMinPrice = 3500; // НОВА МІНІМАЛКА ДЛЯ ОБЛАСТІ
             }
 
-        // 4. ІНШІ ОБЛАСТІ
+        // 7. ІНШІ ОБЛАСТІ
         } else {
             zoneDebug = "Інша область";
             rate = (w <= 500) ? CONFIG.rateLight : CONFIG.rateStandard;
@@ -361,7 +343,6 @@
             ui.wLabel.textContent = w <= 500 ? "Легкий вантаж" : "Важкий вантаж";
             if (w > 500 && w <= 1000) finalPrice += CONFIG.fees.weightMed;
             else if (w > 1000) finalPrice += CONFIG.fees.weightHeavy;
-            
             if (provinceKey === 'закар') activeMinPrice = 4000;
             else activeMinPrice = 2500;
         }
@@ -371,7 +352,6 @@
         
         // --- ГАБАРИТИ ---
         let extraFee = 0;
-        
         if (l > 5) {
           extraFee = CONFIG.fees.lenSixMeter; 
           ui.dist.innerText = distKm.toFixed(0) + " км (Макс. габарит)";
