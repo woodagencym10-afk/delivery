@@ -3,11 +3,13 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Калькулятор</title>
+  <title>Калькулятор доставки</title>
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
     .pac-container { z-index: 99999 !important; border-radius: 8px; border: 1px solid #ccc; font-family: sans-serif; }
+    .loader { border: 2px solid #f3f3f3; border-top: 2px solid #333; border-radius: 50%; width: 20px; height: 20px; animation: spin 1s linear infinite; display: inline-block; }
+    @keyframes spin { to { transform: rotate(360deg); } }
   </style>
 </head>
 <body class="bg-gray-100 p-4">
@@ -17,19 +19,20 @@
       <h2 class="text-xl font-bold mb-4 text-center">Калькулятор доставки</h2>
       
       <div class="space-y-4">
-        <input id="city" type="text" class="w-full border p-3 rounded" placeholder="Куди (місто)..." autocomplete="off" />
-        <input id="weight" type="number" class="w-full border p-3 rounded" placeholder="Вага (кг)" />
-        <input id="length" type="number" step="0.1" class="w-full border p-3 rounded" placeholder="Довжина (м)" />
-        
-        <button id="calcBtn" class="w-full bg-black text-white py-3 rounded font-bold">РОЗРАХУВАТИ</button>
+        <input id="city" type="text" class="w-full border p-3 rounded" placeholder="Куди (місто чи село)..." autocomplete="off" />
+        <div class="grid grid-cols-2 gap-2">
+            <input id="weight" type="number" class="w-full border p-3 rounded" placeholder="Вага (кг)" />
+            <input id="length" type="number" step="0.1" class="w-full border p-3 rounded" placeholder="Довжина (м)" />
+        </div>
+        <button id="calcBtn" class="w-full bg-black text-white py-4 rounded font-bold uppercase tracking-widest">Розрахувати</button>
       </div>
 
-      <div id="resultCard" class="hidden mt-6 p-4 bg-gray-50 border rounded-lg">
-        <p class="text-sm text-gray-600">Результат:</p>
-        <div id="finalPrice" class="text-2xl font-bold my-2">0 грн</div>
-        <div id="distDisplay" class="text-xs text-gray-500 mb-4">0 км</div>
+      <div id="resultCard" class="hidden mt-6 p-5 bg-gray-50 border-2 border-dashed rounded-xl">
+        <p class="text-xs text-gray-500 uppercase font-bold tracking-wider">Результат:</p>
+        <div id="finalPrice" class="text-3xl font-black my-2">0 грн</div>
+        <div id="distDisplay" class="text-sm font-medium text-gray-600 mb-4">0 км</div>
         
-        <button id="sendBtn" class="w-full bg-blue-600 text-white py-3 rounded font-bold">НАДІСЛАТИ В БЕСІДУ</button>
+        <button id="sendBtn" class="w-full bg-blue-600 text-white py-4 rounded-xl font-bold shadow-lg uppercase text-sm">Надіслати в бесіду</button>
       </div>
     </div>
   </div>
@@ -38,25 +41,36 @@
     const tg = window.Telegram.WebApp;
     tg.expand();
 
-    let mapService, autocomplete, selectedPlace = null;
-    let lastResult = null;
+    const CONFIG = {
+      rateStandard: 22, rateLight: 16, rateFarVolyn: 29,
+      fees: { weightMed: 1500, weightHeavy: 3000, lenFiveMeter: 700, lenSixMeter: 2000 }
+    };
+
+    const closeVolynKeywords = ["луцьк", "lutsk", "володимир", "volodymyr", "ковель", "kovel", "горохів", "horokhiv", "нововолинськ", "novovolynsk", "торчин", "torchyn"];
+    const restrictedKeywords = ["клесів", "klesiv", "пугач", "puhach", "гранітне", "hranitne", "федорівка", "fedorivka", "вири", "vyry", "віри", "viry", "березне", "berezne"];
+    const varashKeywords = ["вараш", "varash", "кузнецовськ", "kuznetsovsk"];
+    const zalishchykyKeywords = ["заліщики", "zalishchyky"];
+    const shumskKeywords = ["шумськ", "shumsk"];
+
+    let mapService, autocomplete, selectedPlace = null, lastResult = null;
 
     function initMaps() {
       mapService = new google.maps.DistanceMatrixService();
       autocomplete = new google.maps.places.Autocomplete(document.getElementById("city"), {
         componentRestrictions: { country: "ua" },
-        fields: ["geometry", "formatted_address", "name"]
+        fields: ["address_components", "geometry", "formatted_address", "name"]
       });
-      autocomplete.addListener("place_changed", () => {
-        selectedPlace = autocomplete.getPlace();
-      });
+      autocomplete.addListener("place_changed", () => { selectedPlace = autocomplete.getPlace(); });
     }
 
     async function calculateDelivery() {
-      if (!selectedPlace) return;
+      if (!selectedPlace) { alert("Оберіть місто зі списку!"); return; }
       
-      const w = document.getElementById('weight').value || 0;
-      const l = document.getElementById('length').value || 0;
+      const btn = document.getElementById('calcBtn');
+      btn.innerHTML = '<span class="loader"></span>';
+      
+      const w = parseFloat(document.getElementById('weight').value) || 0;
+      const l = parseFloat(document.getElementById('length').value) || 0;
 
       mapService.getDistanceMatrix({
         origins: ["Львів, Україна"],
@@ -65,36 +79,69 @@
       }, (response, status) => {
         if (status === 'OK') {
           const distKm = response.rows[0].elements[0].distance.value / 1000;
-          let price = distKm * (w > 500 ? 22 : 16);
-          if (w > 500) price += 1500;
-          if (l > 4) price += 700;
-          if (price < 2500) price = 2500;
-          
-          const rounded = Math.ceil(price / 500) * 500;
+          let provinceKey = "";
+          if (selectedPlace.address_components) {
+            selectedPlace.address_components.forEach(c => {
+              const ln = c.long_name.toLowerCase();
+              if (ln.includes("львів")) provinceKey = "львів";
+              else if (ln.includes("волин")) provinceKey = "волин";
+              else if (ln.includes("рівн")) provinceKey = "рівн";
+              else if (ln.includes("терно")) provinceKey = "терно";
+            });
+          }
+
+          const nameOnly = (selectedPlace.name || "").toLowerCase();
+          let finalPrice = 0;
+          let activeMinPrice = 2500;
+          let rate = (w <= 500) ? CONFIG.rateLight : CONFIG.rateStandard;
+
+          // СПЕЦЗОНИ
+          if (varashKeywords.some(k => nameOnly.includes(k))) {
+              finalPrice = w <= 1000 ? 6000 : 7000;
+              activeMinPrice = finalPrice;
+          } else if (zalishchykyKeywords.some(k => nameOnly.includes(k))) {
+              finalPrice = w <= 1000 ? 5000 : 6000;
+              activeMinPrice = finalPrice;
+          } else if (shumskKeywords.some(k => nameOnly.includes(k))) {
+              finalPrice = w <= 1000 ? 3000 : 4500;
+              activeMinPrice = finalPrice;
+          } else if (restrictedKeywords.some(k => nameOnly.includes(k))) {
+              finalPrice = w <= 500 ? 4500 : (w < 1000 ? 5000 : 6000);
+              activeMinPrice = finalPrice;
+          } else {
+              if (provinceKey === "волин" && distKm > 235 && !closeVolynKeywords.some(k => nameOnly.includes(k))) {
+                  rate = w <= 500 ? CONFIG.rateLight : CONFIG.rateFarVolyn;
+                  activeMinPrice = 5500;
+              } else if (provinceKey === "рівн") { activeMinPrice = 4500; }
+              else if (provinceKey === "терно") { activeMinPrice = 3500; }
+              
+              finalPrice = distKm * rate;
+              if (w > 500 && w <= 1000) finalPrice += CONFIG.fees.weightMed;
+              else if (w > 1000) finalPrice += CONFIG.fees.weightHeavy;
+          }
+
+          if (finalPrice < activeMinPrice) finalPrice = activeMinPrice;
+          if (l > 5) finalPrice += CONFIG.fees.lenSixMeter;
+          else if (l > 4) finalPrice += CONFIG.fees.lenFiveMeter;
+
+          const rounded = Math.ceil(finalPrice / 500) * 500;
           const finalPriceStr = rounded.toLocaleString('uk-UA') + " грн";
 
-          lastResult = {
-            city: selectedPlace.name,
-            weight: w,
-            dist: distKm.toFixed(0),
-            price: finalPriceStr
-          };
+          lastResult = { city: selectedPlace.name, weight: w, dist: distKm.toFixed(0), price: finalPriceStr };
 
           document.getElementById('finalPrice').innerText = finalPriceStr;
           document.getElementById('distDisplay').innerText = distKm.toFixed(0) + " км";
           document.getElementById('resultCard').classList.remove('hidden');
         }
+        btn.innerHTML = "Розрахувати";
       });
     }
 
     document.getElementById('sendBtn').addEventListener('click', () => {
       if (lastResult) {
-        // Текст без смайликів та картинок, як ти просила
         const text = `Львів - ${lastResult.city}\nВага ${lastResult.weight} кг\nЦіна ${lastResult.price}\nРозраховано через @woodagencydeliverybot`;
-        
         const shareUrl = `https://t.me/share/url?url=${encodeURIComponent(text)}`;
         tg.openTelegramLink(shareUrl);
-        tg.close();
       }
     });
 
