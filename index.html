@@ -197,6 +197,9 @@
       varashKeywords.forEach(k => { if (fullAddress.includes(k) || nameOnly.includes(k)) isVarash = true; });
 
       const isRivneCity = nameOnly.trim() === "рівне" || nameOnly.trim() === "rivne" || fullAddress.startsWith("рівне,") || fullAddress.startsWith("rivne,");
+      
+      // Перевірка ТЕРНОПІЛЬ (місто)
+      const isTernopilCity = nameOnly.trim() === "тернопіль" || nameOnly.trim() === "ternopil" || fullAddress.startsWith("тернопіль,");
 
       if (selectedPlace.address_components) {
         for (const c of selectedPlace.address_components) {
@@ -321,7 +324,36 @@
                }
             }
 
-        // 3. ІНШІ ОБЛАСТІ
+        // 3. ТЕРНОПІЛЬСЬКА ОБЛАСТЬ (НОВЕ)
+        } else if (provinceKey === 'терно') {
+            if (isTernopilCity) {
+                // МІСТО ТЕРНОПІЛЬ
+                zoneDebug = "м. Тернопіль (Фікс)";
+                if (w <= 500) {
+                    finalPrice = 2500;
+                    ui.wLabel.textContent = "Вага до 500 кг";
+                } else if (w < 1000) {
+                    finalPrice = 3000;
+                    ui.wLabel.textContent = "Вага 501-999 кг";
+                } else {
+                    finalPrice = 5000;
+                    ui.wLabel.textContent = "Вага від 1000 кг";
+                }
+                activeMinPrice = finalPrice;
+            } else {
+                // ТЕРНОПІЛЬСЬКА ОБЛАСТЬ
+                zoneDebug = "Тернопільська обл (Км)";
+                rate = (w <= 500) ? CONFIG.rateLight : CONFIG.rateStandard;
+                finalPrice = distKm * rate;
+                
+                ui.wLabel.textContent = w <= 500 ? "Легкий вантаж" : "Важкий вантаж";
+                if (w > 500 && w <= 1000) finalPrice += CONFIG.fees.weightMed;
+                else if (w > 1000) finalPrice += CONFIG.fees.weightHeavy;
+
+                activeMinPrice = 2500; 
+            }
+
+        // 4. ІНШІ ОБЛАСТІ
         } else {
             zoneDebug = "Інша область";
             rate = (w <= 500) ? CONFIG.rateLight : CONFIG.rateStandard;
@@ -330,8 +362,7 @@
             if (w > 500 && w <= 1000) finalPrice += CONFIG.fees.weightMed;
             else if (w > 1000) finalPrice += CONFIG.fees.weightHeavy;
             
-            if (provinceKey === 'терно') activeMinPrice = 3500;
-            else if (provinceKey === 'закар') activeMinPrice = 4000;
+            if (provinceKey === 'закар') activeMinPrice = 4000;
             else activeMinPrice = 2500;
         }
 
