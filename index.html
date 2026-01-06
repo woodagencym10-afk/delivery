@@ -138,7 +138,7 @@
     // 6. СПИСОК "БРОДИ"
     const brodyKeywords = ["броди", "brody"];
 
-    // 7. СПИСОК "ПЕРЕСЛАВИЧІ" (НОВЕ)
+    // 7. СПИСОК "ПЕРЕСЛАВИЧІ"
     const pereslavychiKeywords = ["переславичі", "pereslavychi"];
 
     let mapService, autocomplete, selectedPlace = null;
@@ -268,6 +268,7 @@
         // 1. ВАРАШ (Фікс)
         if (isVarash) {
             zoneDebug = "ВАРАШ (Фікс)";
+            // Це оголошення залишаємо, як просили
             ui.warningText.innerHTML = "Для цього напрямку діє фіксована ціна.";
             ui.warning.classList.remove('hidden');
 
@@ -284,8 +285,7 @@
         // 1.1 РАТНЕ (Фікс)
         } else if (isRatne) {
             zoneDebug = "РАТНЕ (Фікс 7к)";
-            ui.warningText.innerHTML = "Віддалений маршрут. Діє фіксований тариф.";
-            ui.warning.classList.remove('hidden');
+            // Оголошення прибрано
 
             if (w <= 1000) {
                  finalPrice = 7000;
@@ -300,8 +300,7 @@
         // 1.2 ЖИДИЧИН (Фікс)
         } else if (isZhydychyn) {
             zoneDebug = "ЖИДИЧИН (Фікс)";
-            ui.warningText.innerHTML = "Спеціальний тариф для передмістя Луцька.";
-            ui.warning.classList.remove('hidden');
+            // Оголошення прибрано
             
             if (w <= 1000) {
                 finalPrice = 3500;
@@ -316,8 +315,7 @@
         // 1.3 КОВЕЛЬ (Фікс)
         } else if (isKovel) {
             zoneDebug = "КОВЕЛЬ (Фікс)";
-            ui.warningText.innerHTML = "Спеціальний тариф для м. Ковель.";
-            ui.warning.classList.remove('hidden');
+            // Оголошення прибрано
             
             if (w <= 1000) {
                 finalPrice = 6000;
@@ -329,11 +327,10 @@
             activeMinPrice = finalPrice;
             skipLengthFee = true;
 
-        // 1.4 ПЕРЕСЛАВИЧІ (НОВЕ - Фікс 3500)
+        // 1.4 ПЕРЕСЛАВИЧІ (Фікс)
         } else if (isPereslavychi) {
             zoneDebug = "ПЕРЕСЛАВИЧІ (Фікс)";
-            ui.warningText.innerHTML = "Спеціальний тариф.";
-            ui.warning.classList.remove('hidden');
+            // Оголошення прибрано
             
             if (w <= 1000) {
                 finalPrice = 3500;
@@ -348,6 +345,7 @@
         // 2. КЛЕСІВ/БЕРЕЗНЕ
         } else if (isRestricted) {
              zoneDebug = "ОБМЕЖЕННЯ (Клесів/Березне)";
+             // Це оголошення залишаємо
              ui.warningText.innerHTML = "Доставка в цей регіон обмежена. Ціна розрахована до м. Рівне.";
              ui.warning.classList.remove('hidden');
              
