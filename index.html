@@ -266,25 +266,24 @@
         let zoneDebug = "";
         let skipLengthFee = false;
 
-        // 1. ВАРАШ (Фікс)
+        // 1. ВАРАШ (Фікс 6000/8000)
         if (isVarash) {
             zoneDebug = "ВАРАШ (Фікс)";
-            // Оголошення прибрано за запитом
-
+            // Без банера
             if (w <= 1000) {
                  finalPrice = 6000;
                  ui.wLabel.textContent = "Ціна до м. Вараш (<1т)";
             } else {
-                 finalPrice = 8000; // НОВА ЦІНА 8000
+                 finalPrice = 8000; 
                  ui.wLabel.textContent = "Ціна до м. Вараш (>1т)";
             }
             activeMinPrice = finalPrice;
             skipLengthFee = true; 
         
-        // 1.1 РАТНЕ (Фікс)
+        // 1.1 РАТНЕ (Фікс 7000/8000)
         } else if (isRatne) {
-            zoneDebug = "РАТНЕ (Фікс 7к)";
-
+            zoneDebug = "РАТНЕ (Фікс)";
+            // Без банера
             if (w <= 1000) {
                  finalPrice = 7000;
                  ui.wLabel.textContent = "Фікс. ціна (Ратне)";
@@ -295,10 +294,10 @@
             activeMinPrice = finalPrice;
             skipLengthFee = true; 
 
-        // 1.2 ЖИДИЧИН (Фікс)
+        // 1.2 ЖИДИЧИН (Фікс 3500/4500)
         } else if (isZhydychyn) {
             zoneDebug = "ЖИДИЧИН (Фікс)";
-            
+            // Без банера
             if (w <= 1000) {
                 finalPrice = 3500;
                 ui.wLabel.textContent = "Фікс. ціна (Жидичин)";
@@ -309,10 +308,10 @@
             activeMinPrice = finalPrice;
             skipLengthFee = true;
 
-        // 1.3 КОВЕЛЬ (Фікс)
+        // 1.3 КОВЕЛЬ (Фікс 6000/7000)
         } else if (isKovel) {
             zoneDebug = "КОВЕЛЬ (Фікс)";
-            
+            // Без банера
             if (w <= 1000) {
                 finalPrice = 6000;
                 ui.wLabel.textContent = "Фікс. ціна (Ковель)";
@@ -323,10 +322,10 @@
             activeMinPrice = finalPrice;
             skipLengthFee = true;
 
-        // 1.4 ПЕРЕСЛАВИЧІ (Фікс)
+        // 1.4 ПЕРЕСЛАВИЧІ (Фікс 3500/4500)
         } else if (isPereslavychi) {
             zoneDebug = "ПЕРЕСЛАВИЧІ (Фікс)";
-            
+            // Без банера
             if (w <= 1000) {
                 finalPrice = 3500;
                 ui.wLabel.textContent = "Фікс. ціна (Переславичі)";
@@ -337,10 +336,9 @@
             activeMinPrice = finalPrice;
             skipLengthFee = true;
 
-        // 2. ОБМЕЖЕННЯ (КЛЕСІВ/БЕРЕЗНЕ/ЧУДЕЛЬ/ВЕРБЕНЬ) - Ціна до Рівного
+        // 2. ОБМЕЖЕННЯ (КЛЕСІВ/БЕРЕЗНЕ/ЧУДЕЛЬ/ВЕРБЕНЬ)
         } else if (isRestricted) {
-             zoneDebug = "ОБМЕЖЕННЯ (Клесів/Березне/Чудель/Вербень)";
-             
+             zoneDebug = "ОБМЕЖЕННЯ";
              ui.warningText.innerHTML = "Зробіть запит на доставку <strong>Delivery</strong> або ж можливий самовивіз з Рівного.<br><span class='mt-1 block font-bold'>Вартість доставки до м. Рівне:</span>";
              ui.warning.classList.remove('hidden');
              
@@ -370,7 +368,43 @@
                 ui.wLabel.textContent = w <= 500 ? "Легкий вантаж" : "Важкий вантаж";
             }
 
-        // 4. ВОЛИНЬ (Загальна)
+        // 4. ТЕРНОПІЛЬСЬКА ОБЛАСТЬ (НОВА МАТРИЦЯ)
+        } else if (provinceKey === 'терно') {
+            zoneDebug = "Тернопільська (Матриця)";
+            // Базовий тариф 16 грн для всіх
+            rate = 16;
+            finalPrice = distKm * rate;
+            ui.wLabel.textContent = w <= 500 ? "Легкий вантаж" : "Важкий вантаж";
+
+            // Доплата за вагу
+            // 500-1000кг = +1000
+            // >1000кг = +2000
+            if (w > 1000) finalPrice += 2000;
+            else if (w > 500) finalPrice += 1000;
+
+            // --- МАТРИЦЯ МІНІМУМІВ ---
+            // 1. Ближня зона (<100км, Зборів) -> Мін 2000
+            if (distKm < 100) {
+                activeMinPrice = 2000;
+            } 
+            // 2. Центр (100-135км, Тернопіль) -> Мін 2500
+            else if (distKm <= 135) {
+                activeMinPrice = 2500;
+            } 
+            // 3. Дальня зона (>135км, Микулинці, Чортків, Заліщики)
+            else {
+                 // Базовий поріг для дальніх
+                 if (w <= 500) activeMinPrice = 3500; // Легкий
+                 else activeMinPrice = 4000;          // Важкий (ваше "4000 грн")
+
+                 // 4. ДУЖЕ Дальня (>210км, Заліщики) - корекція для важких
+                 if (distKm > 210) {
+                     if (w > 500 && w <= 1000) activeMinPrice = 5000; // Важкий
+                     else if (w > 1000) activeMinPrice = 6000;        // Надважкий
+                 }
+            }
+
+        // 5. ВОЛИНЬ (Загальна)
         } else if (provinceKey === 'волин') {
             if (isForcedCloseVolyn || distKm <= 235) {
                zoneDebug = "Ближня Волинь";
@@ -392,7 +426,7 @@
                }
             }
 
-        // 5. ЛЬВІВСЬКА ОБЛАСТЬ
+        // 6. ЛЬВІВСЬКА ОБЛАСТЬ
         } else if (provinceKey === 'львів') {
             zoneDebug = "Львівська область";
             
@@ -419,7 +453,7 @@
                zoneDebug += " (Стандарт)";
             }
 
-        // 6. ВСІ ІНШІ
+        // 7. ВСІ ІНШІ
         } else {
             zoneDebug = "Інша область";
             rate = (w <= 500) ? CONFIG.rateLight : CONFIG.rateStandard;
@@ -429,8 +463,7 @@
             if (w > 500 && w <= 1000) finalPrice += CONFIG.fees.weightMed;
             else if (w > 1000) finalPrice += CONFIG.fees.weightHeavy;
             
-            if (provinceKey === 'терно') activeMinPrice = 3500;
-            else if (provinceKey === 'закар') activeMinPrice = 4000;
+            if (provinceKey === 'закар') activeMinPrice = 4000;
             else activeMinPrice = 2500;
         }
 
