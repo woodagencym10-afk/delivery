@@ -126,8 +126,20 @@
     // 2. СПИСОК "ВАРАШ"
     const varashKeywords = ["вараш", "varash", "кузнецовськ", "kuznetsovsk"];
 
-    // 3. СПИСОК "БРОДИ" (Виняток для Львівської області: >70км, але ціна 2500)
+    // 3. СПИСОК "РАТНЕ"
+    const ratneKeywords = ["ратне", "ratne", "гірники", "hirnyky"];
+
+    // 4. СПИСОК "ЖИДИЧИН"
+    const zhydychynKeywords = ["жидичин", "zhydychyn"];
+    
+    // 5. СПИСОК "КОВЕЛЬ"
+    const kovelKeywords = ["ковель", "kovel"];
+
+    // 6. СПИСОК "БРОДИ"
     const brodyKeywords = ["броди", "brody"];
+
+    // 7. СПИСОК "ПЕРЕСЛАВИЧІ" (НОВЕ)
+    const pereslavychiKeywords = ["переславичі", "pereslavychi"];
 
     let mapService, autocomplete, selectedPlace = null;
 
@@ -197,10 +209,23 @@
 
       let isVarash = false;
       varashKeywords.forEach(k => { if (fullAddress.includes(k) || nameOnly.includes(k)) isVarash = true; });
+      
+      let isRatne = false;
+      ratneKeywords.forEach(k => { if (fullAddress.includes(k) || nameOnly.includes(k)) isRatne = true; });
 
-      // Перевірка БРОДИ (Виняток)
+      let isZhydychyn = false;
+      zhydychynKeywords.forEach(k => { if (fullAddress.includes(k) || nameOnly.includes(k)) isZhydychyn = true; });
+
+      // Перевірка КОВЕЛЬ
+      let isKovel = false;
+      kovelKeywords.forEach(k => { if (fullAddress.includes(k) || nameOnly.includes(k)) isKovel = true; });
+
       let isBrody = false;
       brodyKeywords.forEach(k => { if (fullAddress.includes(k) || nameOnly.includes(k)) isBrody = true; });
+
+      // Перевірка ПЕРЕСЛАВИЧІ
+      let isPereslavychi = false;
+      pereslavychiKeywords.forEach(k => { if (fullAddress.includes(k) || nameOnly.includes(k)) isPereslavychi = true; });
 
       const isRivneCity = nameOnly.trim() === "рівне" || nameOnly.trim() === "rivne" || fullAddress.startsWith("рівне,") || fullAddress.startsWith("rivne,");
 
@@ -238,11 +263,12 @@
         let activeMinPrice = 2500;
         let rate = CONFIG.rateStandard;
         let zoneDebug = "";
+        let skipLengthFee = false;
 
-        // 1. ВАРАШ (Фікс 6000/7000)
+        // 1. ВАРАШ (Фікс)
         if (isVarash) {
             zoneDebug = "ВАРАШ (Фікс)";
-            ui.warningText.innerHTML = "Для цього напрямку рекомендуємо порівняти вартість у <strong>'Delivery'</strong>. Якщо ж вам зручніше нашим авто — фіксована ціна нижче.";
+            ui.warningText.innerHTML = "Для цього напрямку діє фіксована ціна.";
             ui.warning.classList.remove('hidden');
 
             if (w <= 1000) {
@@ -253,8 +279,73 @@
                  ui.wLabel.textContent = "Ціна до м. Вараш (>1т)";
             }
             activeMinPrice = finalPrice;
+            skipLengthFee = true; 
+        
+        // 1.1 РАТНЕ (Фікс)
+        } else if (isRatne) {
+            zoneDebug = "РАТНЕ (Фікс 7к)";
+            ui.warningText.innerHTML = "Віддалений маршрут. Діє фіксований тариф.";
+            ui.warning.classList.remove('hidden');
 
-        // 2. КЛЕСІВ/БЕРЕЗНЕ (Ціна до Рівного)
+            if (w <= 1000) {
+                 finalPrice = 7000;
+                 ui.wLabel.textContent = "Фікс. ціна (Ратне)";
+            } else {
+                 finalPrice = 8000;
+                 ui.wLabel.textContent = "Фікс. ціна >1т (Ратне)";
+            }
+            activeMinPrice = finalPrice;
+            skipLengthFee = true; 
+
+        // 1.2 ЖИДИЧИН (Фікс)
+        } else if (isZhydychyn) {
+            zoneDebug = "ЖИДИЧИН (Фікс)";
+            ui.warningText.innerHTML = "Спеціальний тариф для передмістя Луцька.";
+            ui.warning.classList.remove('hidden');
+            
+            if (w <= 1000) {
+                finalPrice = 3500;
+                ui.wLabel.textContent = "Фікс. ціна (Жидичин)";
+            } else {
+                finalPrice = 4500;
+                ui.wLabel.textContent = "Фікс. ціна >1т (Жидичин)";
+            }
+            activeMinPrice = finalPrice;
+            skipLengthFee = true;
+
+        // 1.3 КОВЕЛЬ (Фікс)
+        } else if (isKovel) {
+            zoneDebug = "КОВЕЛЬ (Фікс)";
+            ui.warningText.innerHTML = "Спеціальний тариф для м. Ковель.";
+            ui.warning.classList.remove('hidden');
+            
+            if (w <= 1000) {
+                finalPrice = 6000;
+                ui.wLabel.textContent = "Фікс. ціна (Ковель)";
+            } else {
+                finalPrice = 7000;
+                ui.wLabel.textContent = "Фікс. ціна >1т (Ковель)";
+            }
+            activeMinPrice = finalPrice;
+            skipLengthFee = true;
+
+        // 1.4 ПЕРЕСЛАВИЧІ (НОВЕ - Фікс 3500)
+        } else if (isPereslavychi) {
+            zoneDebug = "ПЕРЕСЛАВИЧІ (Фікс)";
+            ui.warningText.innerHTML = "Спеціальний тариф.";
+            ui.warning.classList.remove('hidden');
+            
+            if (w <= 1000) {
+                finalPrice = 3500;
+                ui.wLabel.textContent = "Фікс. ціна (Переславичі)";
+            } else {
+                finalPrice = 4500;
+                ui.wLabel.textContent = "Фікс. ціна >1т (Переславичі)";
+            }
+            activeMinPrice = finalPrice;
+            skipLengthFee = true;
+
+        // 2. КЛЕСІВ/БЕРЕЗНЕ
         } else if (isRestricted) {
              zoneDebug = "ОБМЕЖЕННЯ (Клесів/Березне)";
              ui.warningText.innerHTML = "Доставка в цей регіон обмежена. Ціна розрахована до м. Рівне.";
@@ -286,7 +377,7 @@
                 ui.wLabel.textContent = w <= 500 ? "Легкий вантаж" : "Важкий вантаж";
             }
 
-        // 4. ВОЛИНЬ
+        // 4. ВОЛИНЬ (Загальна)
         } else if (provinceKey === 'волин') {
             if (isForcedCloseVolyn || distKm <= 235) {
                zoneDebug = "Ближня Волинь";
@@ -308,7 +399,7 @@
                }
             }
 
-        // 5. ЛЬВІВСЬКА ОБЛАСТЬ (З ВИНЯТКОМ ДЛЯ БРОДІВ)
+        // 5. ЛЬВІВСЬКА ОБЛАСТЬ
         } else if (provinceKey === 'львів') {
             zoneDebug = "Львівська область";
             
@@ -319,10 +410,8 @@
             if (w > 500 && w <= 1000) finalPrice += CONFIG.fees.weightMed;
             else if (w > 1000) finalPrice += CONFIG.fees.weightHeavy;
 
-            // --- ПРІОРИТЕТ 1: БРОДИ (Виняток) ---
+            // --- ПРІОРИТЕТ 1: БРОДИ ---
             if (isBrody) {
-                // Якщо це Броди, залишаємо стандартний мінімум 2500
-                // Ціна розраховується чесно по км + вага
                 activeMinPrice = 2500;
                 zoneDebug += " (Броди: Стандарт)";
             } 
@@ -355,19 +444,25 @@
         let priceBeforeExtras = finalPrice;
         if (finalPrice < activeMinPrice) finalPrice = activeMinPrice;
         
-        // --- ГАБАРИТИ ---
+        // --- ГАБАРИТИ (ДОВЖИНА) ---
         let extraFee = 0;
-        if (l > 5) {
-          extraFee = CONFIG.fees.lenSixMeter; 
-          ui.dist.innerText = distKm.toFixed(0) + " км (Макс. габарит)";
-          ui.dist.className = "font-black text-red-600";
-        } else if (l > 4) {
-          extraFee = CONFIG.fees.lenFiveMeter; 
-          ui.dist.innerText = distKm.toFixed(0) + " км (Довгомір 5м)";
-          ui.dist.className = "font-black text-orange-500";
+        
+        if (!skipLengthFee) {
+            if (l > 5) {
+              extraFee = CONFIG.fees.lenSixMeter; 
+              ui.dist.innerText = distKm.toFixed(0) + " км (Макс. габарит)";
+              ui.dist.className = "font-black text-red-600";
+            } else if (l > 4) {
+              extraFee = CONFIG.fees.lenFiveMeter; 
+              ui.dist.innerText = distKm.toFixed(0) + " км (Довгомір 5м)";
+              ui.dist.className = "font-black text-orange-500";
+            } else {
+              ui.dist.innerText = distKm.toFixed(0) + " км";
+              ui.dist.className = "font-black text-slate-900";
+            }
         } else {
-          ui.dist.innerText = distKm.toFixed(0) + " км";
-          ui.dist.className = "font-black text-slate-900";
+            ui.dist.innerText = distKm.toFixed(0) + " км";
+            ui.dist.className = "font-black text-slate-900";
         }
         
         finalPrice += extraFee;
@@ -375,7 +470,7 @@
         // DEBUG INFO
         ui.dbgZone.textContent = zoneDebug;
         ui.dbgDist.textContent = distKm.toFixed(1) + " км";
-        ui.dbgCalc.innerHTML = `База: ${Math.round(priceBeforeExtras)} -> Мін: ${activeMinPrice}<br>Доплата довжину: ${extraFee} грн`;
+        ui.dbgCalc.innerHTML = `База: ${Math.round(priceBeforeExtras)} -> Мін: ${activeMinPrice}<br>Доплата довжину: ${extraFee} грн (Skip: ${skipLengthFee})`;
         ui.dbgPanel.classList.remove('hidden');
 
         const rounded = Math.ceil(finalPrice / 500) * 500;
