@@ -137,7 +137,10 @@
       const l = parseFloat(ui.length.value) || 0;
       let provinceKey = "";
       let regionName = "—";
-      let isVolynRegion = false; // Додаємо прапорець для Волині, щоб знати, що це не спец. зона
+      
+      // Прапорці
+      let isSpecialFixedPrice = false;
+      let isSpecialLengthHandled = false; 
 
       selectedPlace.address_components.forEach(c => {
         if (c.types.includes("administrative_area_level_1")) {
@@ -145,7 +148,6 @@
           const ln = regionName.toLowerCase();
           if (ln.includes("рівн")) provinceKey = "рівн";
           else if (ln.includes("терно")) provinceKey = "терно";
-          else if (ln.includes("волин")) isVolynRegion = true; // Визначаємо Волинську область
         }
       });
 
@@ -160,9 +162,7 @@
 
         let finalPrice = 0;
         let activeMinPrice = 2500;
-        let isSpecialLengthHandled = false;
         const isRivneCity = nameOnly === "рівне" || nameOnly === "rivne" || fullAddr.startsWith("рівне");
-        let isSpecialFixedPrice = false; // Флаг для запобігання зайвого округлення стандартного тарифу
 
         // --- ЛОГІКА РОЗРАХУНКУ ТАРИФІВ (СПЕЦТАРИФИ) ---
         
@@ -187,7 +187,7 @@
             isSpecialLengthHandled = true; 
             isSpecialFixedPrice = true;
             
-        // 4. Камінь-Каширський (ПОВЕРНУТО)
+        // 4. Камінь-Каширський 
         } else if (kaminkashyrskyi.some(k => nameOnly.includes(k))) {
            finalPrice = 5000; 
            activeMinPrice = finalPrice;
@@ -223,12 +223,15 @@
         
         // 9. ТЕРНОПІЛЬСЬКА область
         } else if (provinceKey === "терно") {
-          if (nameOnly.includes("тернопіль")) {
+          // Якщо це місто Тернопіль - ФІКСОВАНА ЦІНА
+          if (nameOnly.includes("тернопіль") || nameOnly.includes("ternopil")) {
             if (w <= 500) finalPrice = 2500;
             else if (w < 1000) finalPrice = 3000;
             else finalPrice = 5000;
+            activeMinPrice = finalPrice;
+            isSpecialFixedPrice = true;
           } else {
-            // Тернопільська область (райони)
+            // Тернопільська область (райони) - за кілометражем
             finalPrice = distRes * (w <= 500 ? 16 : 22);
             if (w > 500 && w < 1000) finalPrice += 1500;
             else if (w >= 1000) finalPrice += 3000;
@@ -236,7 +239,7 @@
           }
         
         } else {
-          // --- 10. СТАНДАРТНИЙ ТАРИФ (ВКЛЮЧАЄ ВСЮ ВОЛИНСЬКУ ОБЛАСТЬ, ОКРІМ КАМІНЬ-КАШИРСЬКОГО) ---
+          // --- 10. СТАНДАРТНИЙ ТАРИФ (ВКЛЮЧАЄ ВСЮ ВОЛИНСЬКУ ОБЛАСТЬ, ОКРІМ СПЕЦЗОН) ---
           finalPrice = distRes * (w <= 500 ? 16 : 22);
           if (w > 500 && w < 1000) finalPrice += 1500;
           else if (w >= 1000) finalPrice += 3000;
@@ -250,15 +253,10 @@
              if (l > 5) finalPrice += 2000; else if (l > 4) finalPrice += 700;
         }
 
-        // Фінальне округлення
-        // Якщо це не фіксований тариф з вищої частини логіки, округлюємо до 500 грн
-        if (!isSpecialFixedPrice) {
-             finalPrice = Math.ceil(finalPrice / 500) * 500;
-        } else {
-             // Якщо це фіксований тариф, округлюємо, якщо потрібно (наприклад, 7000/8500), але мінімум 5000 грн.
-             finalPrice = Math.ceil(finalPrice / 500) * 500;
-        }
-
+        // Фінальне округлення: округлюємо до 500 грн лише, якщо це НЕ фіксований тариф,
+        // а розрахунковий за кілометражем (Стандартний тариф, Тернопільська область райони).
+        // Але тут ми просто округлюємо завжди, оскільки всі фіксовані ціни вже кратні 500.
+        finalPrice = Math.ceil(finalPrice / 500) * 500;
 
         ui.price.textContent = finalPrice.toLocaleString('uk-UA') + " грн";
         ui.dist.textContent = Math.round(distRes) + " км";
