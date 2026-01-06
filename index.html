@@ -116,24 +116,15 @@
       "нововолинськ", "novovolynsk", "торчин", "torchyn"
     ];
     
-    // 1. СПИСОК "КЛЕСІВ/БЕРЕЗНЕ" -> (Ціна до Рівного)
+    // 1. СПИСОК "КЛЕСІВ/БЕРЕЗНЕ"
     const restrictedKeywords = [
       "клесів", "klesiv", "пугач", "puhach", "гранітне", "hranitne",
       "федорівка", "fedorivka", "вири", "vyry", "віри", "viry",
       "олексіївка", "oleksiivka", "березне", "berezne"
     ];
 
-    // 2. СПИСОК "ВАРАШ" -> (Ціна 6000-7000)
+    // 2. СПИСОК "ВАРАШ"
     const varashKeywords = ["вараш", "varash", "кузнецовськ", "kuznetsovsk"];
-
-    // 3. СПИСОК "ПІДКАМІНЬ" -> (Мін. 3500)
-    const pidkaminKeywords = [
-      "підкамінь", "pidkamin", 
-      "накваша", "nakvasha", 
-      "паликорови", "palykorovy",
-      "стиборівка", "styborivka",
-      "яблунівка", "yablunivka"
-    ];
 
     let mapService, autocomplete, selectedPlace = null;
 
@@ -205,10 +196,6 @@
       let isVarash = false;
       varashKeywords.forEach(k => { if (fullAddress.includes(k) || nameOnly.includes(k)) isVarash = true; });
 
-      // Перевірка ПІДКАМІНЬ (НОВЕ)
-      let isPidkaminZone = false;
-      pidkaminKeywords.forEach(k => { if (fullAddress.includes(k) || nameOnly.includes(k)) isPidkaminZone = true; });
-
       const isRivneCity = nameOnly.trim() === "рівне" || nameOnly.trim() === "rivne" || fullAddress.startsWith("рівне,") || fullAddress.startsWith("rivne,");
 
       if (selectedPlace.address_components) {
@@ -246,7 +233,7 @@
         let rate = CONFIG.rateStandard;
         let zoneDebug = "";
 
-        // 1. ПРІОРИТЕТ: ВАРАШ (Фікс 6000/7000)
+        // 1. ВАРАШ (Фікс 6000/7000)
         if (isVarash) {
             zoneDebug = "ВАРАШ (Фікс)";
             ui.warningText.innerHTML = "Для цього напрямку рекомендуємо порівняти вартість у <strong>'Delivery'</strong>. Якщо ж вам зручніше нашим авто — фіксована ціна нижче.";
@@ -261,7 +248,7 @@
             }
             activeMinPrice = finalPrice;
 
-        // 2. ПРІОРИТЕТ: КЛЕСІВ/БЕРЕЗНЕ (Ціна до Рівного)
+        // 2. КЛЕСІВ/БЕРЕЗНЕ (Ціна до Рівного)
         } else if (isRestricted) {
              zoneDebug = "ОБМЕЖЕННЯ (Клесів/Березне)";
              ui.warningText.innerHTML = "Доставка в цей регіон обмежена. Ціна розрахована до м. Рівне.";
@@ -274,50 +261,26 @@
              ui.wLabel.textContent = "Тариф до Рівного";
              activeMinPrice = finalPrice;
 
-        // 3. ПРІОРИТЕТ: ПІДКАМІНЬ (Мін 3500) -- НОВИЙ БЛОК --
-        } else if (isPidkaminZone) {
-             zoneDebug = "Підкамінь (Спец)";
-             
-             // Рахуємо стандартно по кілометрах
-             rate = (w <= 500) ? CONFIG.rateLight : CONFIG.rateStandard;
-             finalPrice = distKm * rate;
-
-             // Доплати за вагу
-             if (w > 500 && w <= 1000) finalPrice += CONFIG.fees.weightMed;
-             else if (w > 1000) finalPrice += CONFIG.fees.weightHeavy;
-
-             // ФІКСУЄМО МІНІМУМ 3500
-             activeMinPrice = 3500;
-             ui.wLabel.textContent = w <= 500 ? "Легкий вантаж (Підкамінь)" : "Важкий вантаж (Підкамінь)";
-
-        // 4. РІВНЕНСЬКА ОБЛАСТЬ
+        // 3. РІВНЕНСЬКА ОБЛАСТЬ
         } else if (provinceKey === 'рівн') {
             if (isRivneCity) {
                  zoneDebug = "м. Рівне (Фікс)";
-                 if (w <= 500) {
-                     finalPrice = 4500;
-                     ui.wLabel.textContent = "Вага до 500 кг";
-                 } else if (w < 1000) {
-                     finalPrice = 5000;
-                     ui.wLabel.textContent = "Вага 501-999 кг";
-                 } else {
-                     finalPrice = 6000;
-                     ui.wLabel.textContent = "Вага від 1000 кг";
-                 }
+                 if (w <= 500) finalPrice = 4500;
+                 else if (w < 1000) finalPrice = 5000;
+                 else finalPrice = 6000;
                  activeMinPrice = finalPrice; 
+                 ui.wLabel.textContent = w <= 500 ? "Вага до 500 кг" : (w < 1000 ? "Вага 501-999 кг" : "Вага від 1000 кг");
             } else {
                 zoneDebug = "Рівненська обл (Км)";
                 rate = (w <= 500) ? CONFIG.rateLight : CONFIG.rateStandard;
                 finalPrice = distKm * rate;
-                
-                ui.wLabel.textContent = w <= 500 ? "Легкий вантаж" : "Важкий вантаж";
                 if (w > 500 && w <= 1000) finalPrice += CONFIG.fees.weightMed;
                 else if (w > 1000) finalPrice += CONFIG.fees.weightHeavy;
-
                 activeMinPrice = 4500; 
+                ui.wLabel.textContent = w <= 500 ? "Легкий вантаж" : "Важкий вантаж";
             }
 
-        // 5. ВОЛИНЬ
+        // 4. ВОЛИНЬ
         } else if (provinceKey === 'волин') {
             if (isForcedCloseVolyn || distKm <= 235) {
                zoneDebug = "Ближня Волинь";
@@ -330,13 +293,8 @@
             } else {
                zoneDebug = "Далека Волинь";
                activeMinPrice = 5500; 
-               if (w <= 500) {
-                 rate = CONFIG.rateLight; 
-                 ui.wLabel.textContent = "Легкий вантаж (Далеко)";
-               } else {
-                 rate = CONFIG.rateFarVolyn; 
-                 ui.wLabel.textContent = "Важкий вантаж (Далеко)";
-               }
+               rate = (w <= 500) ? CONFIG.rateLight : CONFIG.rateFarVolyn; 
+               ui.wLabel.textContent = w <= 500 ? "Легкий вантаж (Далеко)" : "Важкий вантаж (Далеко)";
                finalPrice = distKm * rate;
                if (w > 500) {
                  if (w <= 1000) finalPrice += CONFIG.fees.weightMed;
@@ -344,12 +302,34 @@
                }
             }
 
-        // 6. ІНШІ ОБЛАСТІ (ВКЛЮЧАЮЧИ ЛЬВІВСЬКУ)
+        // 5. ЛЬВІВСЬКА ОБЛАСТЬ (НОВА СПЕЦІАЛЬНА ЛОГІКА)
+        } else if (provinceKey === 'львів') {
+            zoneDebug = "Львівська область (Спец)";
+            
+            rate = (w <= 500) ? CONFIG.rateLight : CONFIG.rateStandard;
+            finalPrice = distKm * rate;
+            ui.wLabel.textContent = w <= 500 ? "Легкий вантаж" : "Важкий вантаж";
+
+            // Доплати за вагу
+            if (w > 500 && w <= 1000) finalPrice += CONFIG.fees.weightMed;
+            else if (w > 1000) finalPrice += CONFIG.fees.weightHeavy;
+
+            // --- ПРАВИЛО 70 КМ ДЛЯ ЛЬВОВА ---
+            // Соколівка (82км), Підкамінь (124км) -> потраплять під 3500
+            if (distKm > 70) {
+               activeMinPrice = 3500;
+               zoneDebug += " (>70км)";
+            } else {
+               activeMinPrice = 2500; // Ближні села
+            }
+
+        // 6. ВСІ ІНШІ (ТЕРНОПІЛЬ, ЗАКАРПАТТЯ ТОЩО)
         } else {
             zoneDebug = "Інша область";
             rate = (w <= 500) ? CONFIG.rateLight : CONFIG.rateStandard;
             finalPrice = distKm * rate;
             ui.wLabel.textContent = w <= 500 ? "Легкий вантаж" : "Важкий вантаж";
+            
             if (w > 500 && w <= 1000) finalPrice += CONFIG.fees.weightMed;
             else if (w > 1000) finalPrice += CONFIG.fees.weightHeavy;
             
@@ -361,9 +341,8 @@
         let priceBeforeExtras = finalPrice;
         if (finalPrice < activeMinPrice) finalPrice = activeMinPrice;
         
-        // --- ГАБАРИТИ (Довжина) ---
+        // --- ГАБАРИТИ ---
         let extraFee = 0;
-        
         if (l > 5) {
           extraFee = CONFIG.fees.lenSixMeter; 
           ui.dist.innerText = distKm.toFixed(0) + " км (Макс. габарит)";
