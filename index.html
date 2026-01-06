@@ -74,6 +74,7 @@
 
   <script>
     // --- СПИСКИ МІСТ ЗІ СПЕЦТАРИФАМИ ---
+    // Обмежені зони Рівненщини (Клесів, Березне, Олексіївка, Рівне-місто тощо) - ВИЩИЙ ТАРИФ
     const restrictedKeywords = ["клесів", "klesiv", "пугач", "puhach", "гранітне", "hranitne", "федорівка", "fedorivka", "вири", "vyry", "віри", "viry", "олексіївка", "oleksiivka", "березне", "berezne"];
     const varashKeywords = ["вараш", "varash", "кузнецовськ", "kuznetsovsk"];
     const zalishchykyKeywords = ["заліщики", "zalishchyky"];
@@ -82,11 +83,8 @@
     const zakarpattiaSpecial = ["кваси", "kvasy", "рахів", "rakhiv", "ясіня", "yasinia", "лазещина", "lazeshchyna", "ділове", "dilove"];
     // Низинне Закарпаття (Косино та навколишні) - 6000/8000 (ВКЛЮЧАЮЧИ довжину)
     const zakarpattiaLowland = ["косино", "kosyno", "бадалово", "badalovo", "велика бийгань", "velyka biihan", "горонглаб", "horonglab", "запсонь", "zapsin", "чома", "choma", "яноші", "yanoshi", "берегове", "berehove"];
-    // Волинська область (Фіксований 5000 грн + Довжина)
-    const kaminkashyrskyi = ["камінь-каширський", "kamin-kashyrskyi"];
-    // Рівненська область (Фіксований 5000 грн + Довжина)
-    const rivneSpecial = ["чудель", "chudel", "клевань", "klevan", "оржів", "orzhiv", "великий жолудськ", "velykyi zholudsk", "костопіль", "kostopil", "дубняки", "dubniaky"];
-
+    
+    // Списки kaminkashyrskyi та rivneSpecial ВИКЛЮЧЕНІ, оскільки замінені на перевірку області!
 
     let mapService, autocomplete, selectedPlace = null;
 
@@ -129,13 +127,19 @@
       const l = parseFloat(ui.length.value) || 0;
       let provinceKey = "";
       let regionName = "—";
+      let volynKey = false;
+      let rivneKey = false;
 
       selectedPlace.address_components.forEach(c => {
         if (c.types.includes("administrative_area_level_1")) {
           regionName = c.long_name;
           const ln = regionName.toLowerCase();
-          if (ln.includes("рівн")) provinceKey = "рівн";
+          if (ln.includes("рівн")) {
+            provinceKey = "рівн";
+            rivneKey = true;
+          }
           else if (ln.includes("терно")) provinceKey = "терно";
+          else if (ln.includes("волин")) volynKey = true; // Нова перевірка для Волинської області
         }
       });
 
@@ -155,41 +159,35 @@
 
         // --- ЛОГІКА РОЗРАХУНКУ ТАРИФІВ (СПЕЦТАРИФИ) ---
         
+        // 1. Вараш (окремий випадок)
         if (varashKeywords.some(k => nameOnly.includes(k))) {
           ui.warningText.innerHTML = "Радимо скористатись розрахунком <strong>Delivery</strong>, це може бути значно вигідніше.";
           ui.warning.classList.remove('hidden');
           finalPrice = w <= 1000 ? 6000 : 7000;
           activeMinPrice = finalPrice;
         
-        // Спецтариф 1: Гірське Закарпаття (Рахівський район)
+        // 2. Гірське Закарпаття (Рахівський район)
         } else if (zakarpattiaSpecial.some(k => nameOnly.includes(k))) {
            finalPrice = w <= 1000 ? 5000 : 6000;
            activeMinPrice = finalPrice;
         
-        // Спецтариф 2: Низинне Закарпаття (Косино та район) - 6000/8000 грн (включаючи довжину)
+        // 3. Низинне Закарпаття (Косино та район) - 6000/8000 грн (включаючи довжину)
         } else if (zakarpattiaLowland.some(k => nameOnly.includes(k))) {
             finalPrice = w <= 1000 ? 6000 : 8000;
             activeMinPrice = finalPrice;
             isSpecialLengthHandled = true; // Встановлюємо прапорець, щоб ігнорувати довжину
             
-        // Спецтариф 3: Камінь-Каширський (5000 грн)
-        } else if (kaminkashyrskyi.some(k => nameOnly.includes(k))) {
-           finalPrice = 5000; 
-           activeMinPrice = finalPrice;
-        
-        // Спецтариф 4: Чудель/Дубняки та район (5000 грн)
-        } else if (rivneSpecial.some(k => nameOnly.includes(k))) {
-           finalPrice = 5000; 
-           activeMinPrice = finalPrice;
-
+        // 4. Шуми
         } else if (shumskKeywords.some(k => nameOnly.includes(k))) {
           finalPrice = w <= 1000 ? 3000 : 4500;
           activeMinPrice = finalPrice;
         
+        // 5. Заліщики
         } else if (zalishchykyKeywords.some(k => nameOnly.includes(k))) {
           finalPrice = w <= 1000 ? 5000 : 6000;
           activeMinPrice = finalPrice;
-        
+
+        // 6. Окремі обмежені зони Рівненщини (Клесів, Березне, Рівне-місто) - Вищий тариф
         } else if (restrictedKeywords.some(k => nameOnly.includes(k)) || isRivneCity) {
           ui.warningText.innerHTML = "Радимо Delivery або самовивіз з Рівного (для міста Рівне та визначених міст).<br><strong>Вартість доставки до м. Рівне:</strong>";
           ui.warning.classList.remove('hidden');
@@ -198,6 +196,13 @@
           else finalPrice = 6000;
           activeMinPrice = finalPrice;
         
+        // 7. НОВА ЛОГІКА: ВОЛИНСЬКА та РІВНЕНСЬКА області (загальний тариф)
+        } else if (volynKey || (rivneKey && !isRivneCity)) { 
+           // Волинська область, або Рівненська область (але не місто Рівне, бо воно в restrictedKeywords)
+           finalPrice = w <= 1000 ? 5000 : 6500; 
+           activeMinPrice = finalPrice;
+        
+        // 8. ТЕРНОПІЛЬСЬКА область
         } else if (provinceKey === "терно") {
           if (nameOnly.includes("тернопіль")) {
             if (w <= 500) finalPrice = 2500;
