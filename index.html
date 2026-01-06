@@ -73,10 +73,13 @@
   </div>
 
   <script>
+    // --- СПИСКИ МІСТ ЗІ СПЕЦТАРИФАМИ ---
     const restrictedKeywords = ["клесів", "klesiv", "пугач", "puhach", "гранітне", "hranitne", "федорівка", "fedorivka", "вири", "vyry", "віри", "viry", "олексіївка", "oleksiivka", "березне", "berezne"];
     const varashKeywords = ["вараш", "varash", "кузнецовськ", "kuznetsovsk"];
     const zalishchykyKeywords = ["заліщики", "zalishchyky"];
     const shumskKeywords = ["шумськ", "shumsk"];
+    // Новий напрямок (Закарпаття)
+    const zakarpattiaSpecial = ["кваси", "kvasy", "рахів", "rakhiv", "ясіня", "yasinia", "лазещина", "lazeshchyna", "ділове", "dilove"];
 
     let mapService, autocomplete, selectedPlace = null;
 
@@ -142,18 +145,27 @@
         let activeMinPrice = 2500;
         const isRivneCity = nameOnly === "рівне" || nameOnly === "rivne" || fullAddr.startsWith("рівне");
 
-        // Логіка спецтарифів
+        // --- ЛОГІКА РОЗРАХУНКУ ТАРИФІВ ---
+        
         if (varashKeywords.some(k => nameOnly.includes(k))) {
           ui.warningText.innerHTML = "Радимо скористатись розрахунком <strong>Delivery</strong>, це може бути значно вигідніше.";
           ui.warning.classList.remove('hidden');
           finalPrice = w <= 1000 ? 6000 : 7000;
           activeMinPrice = finalPrice;
+        
+        // Додано: Спецтариф для Кваси / Рахів / Ясіня
+        } else if (zakarpattiaSpecial.some(k => nameOnly.includes(k))) {
+           finalPrice = w <= 1000 ? 5000 : 6000;
+           activeMinPrice = finalPrice;
+
         } else if (shumskKeywords.some(k => nameOnly.includes(k))) {
           finalPrice = w <= 1000 ? 3000 : 4500;
           activeMinPrice = finalPrice;
+        
         } else if (zalishchykyKeywords.some(k => nameOnly.includes(k))) {
           finalPrice = w <= 1000 ? 5000 : 6000;
           activeMinPrice = finalPrice;
+        
         } else if (restrictedKeywords.some(k => nameOnly.includes(k)) || isRivneCity) {
           ui.warningText.innerHTML = "Радимо Delivery або самовивіз з Рівного (для міста Рівне та визначених міст).<br><strong>Вартість доставки до м. Рівне:</strong>";
           ui.warning.classList.remove('hidden');
@@ -161,6 +173,7 @@
           else if (w < 1000) finalPrice = 5000;
           else finalPrice = 6000;
           activeMinPrice = finalPrice;
+        
         } else if (provinceKey === "терно") {
           if (nameOnly.includes("тернопіль")) {
             if (w <= 500) finalPrice = 2500;
@@ -172,14 +185,18 @@
             else if (w >= 1000) finalPrice += 3000;
             activeMinPrice = 3500;
           }
+        
         } else {
+          // Стандартний тариф для всіх інших
           finalPrice = distRes * (w <= 500 ? 16 : 22);
           if (w > 500 && w < 1000) finalPrice += 1500;
           else if (w >= 1000) finalPrice += 3000;
         }
 
-        // Мінімалка та габарити
+        // Мінімалка та доплата за габарити (довжину)
         if (finalPrice < activeMinPrice) finalPrice = activeMinPrice;
+        
+        // Тут додається +2000 грн, якщо довжина > 5м
         if (l > 5) finalPrice += 2000; else if (l > 4) finalPrice += 700;
 
         ui.price.textContent = (Math.ceil(finalPrice / 500) * 500).toLocaleString('uk-UA') + " грн";
