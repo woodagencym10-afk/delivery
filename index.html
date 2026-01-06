@@ -85,7 +85,7 @@
     // Волинська область (Фіксований 5000 грн + Довжина)
     const kaminkashyrskyi = ["камінь-каширський", "kamin-kashyrskyi"];
     // Рівненська область (Фіксований 5000 грн + Довжина)
-    const rivneSpecial = ["чудель", "chudel", "клевань", "klevan", "оржів", "orzhiv", "великий жолудськ", "velykyi zholudsk", "костопіль", "kostopil"];
+    const rivneSpecial = ["чудель", "chudel", "клевань", "klevan", "оржів", "orzhiv", "великий жолудськ", "velykyi zholudsk", "костопіль", "kostopil", "дубняки", "dubniaky"];
 
 
     let mapService, autocomplete, selectedPlace = null;
@@ -177,7 +177,7 @@
            finalPrice = 5000; 
            activeMinPrice = finalPrice;
         
-        // Спецтариф 4: Чудель та район (5000 грн)
+        // Спецтариф 4: Чудель/Дубняки та район (5000 грн)
         } else if (rivneSpecial.some(k => nameOnly.includes(k))) {
            finalPrice = 5000; 
            activeMinPrice = finalPrice;
@@ -221,7 +221,7 @@
         // Мінімальна ціна (завжди застосовується)
         if (finalPrice < activeMinPrice) finalPrice = activeMinPrice;
         
-        // Доплата за габарити (ЗАСТОСОВУЄТЬСЯ, ТІЛЬКИ ЯКЩО НЕ БУЛО ВИКЛЮЧЕННЯ)
+        // Доплата за габарити (ЗАСТОСОВУЄТЬСЯ, ТІЛЬКИ ЯКЩО НЕ БУЛО ВИКЛЮЧЕННЯ ДЛЯ КОСИНО)
         if (!isSpecialLengthHandled) {
              if (l > 5) finalPrice += 2000; else if (l > 4) finalPrice += 700;
         }
