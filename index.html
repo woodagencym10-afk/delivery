@@ -94,6 +94,8 @@
       "заров'є", "zarovye", "гута-перейма", "huta-pereima", "малушка", "malushka",
       "сарни", "sarny"
     ];
+    // НОВИЙ СПИСОК: Підкамінь (Львівська область) - підвищена мінімальна ціна 
+    const pidkaminKeywords = ["підкамінь", "pidkamin"];
 
 
     let mapService, autocomplete, selectedPlace = null;
@@ -139,7 +141,6 @@
       let regionName = "—";
       
       // Прапорці
-      let isSpecialFixedPrice = false;
       let isSpecialLengthHandled = false; 
 
       selectedPlace.address_components.forEach(c => {
@@ -163,6 +164,7 @@
         let finalPrice = 0;
         let activeMinPrice = 2500;
         const isRivneCity = nameOnly === "рівне" || nameOnly === "rivne" || fullAddr.startsWith("рівне");
+        let isSpecialFixedPrice = false; // Використовуємо, щоб встановити, коли не застосовувати активну мін. ціну (2500 грн)
 
         // --- ЛОГІКА РОЗРАХУНКУ ТАРИФІВ (СПЕЦТАРИФИ) ---
         
@@ -211,7 +213,13 @@
           activeMinPrice = finalPrice;
           isSpecialFixedPrice = true;
         
-        // 8. Окремі обмежені зони Рівненщини (Клесів, Березне, Рівне-місто)
+        // 8. Підкамінь (НОВИЙ СПЕЦТАРИФ: 3500/5000 грн)
+        } else if (pidkaminKeywords.some(k => nameOnly.includes(k))) {
+             finalPrice = w <= 500 ? 3500 : 5000; // 3500 за Легкий, 5000 за Важкий
+             activeMinPrice = finalPrice;
+             isSpecialFixedPrice = true;
+        
+        // 9. Окремі обмежені зони Рівненщини (Клесів, Березне, Рівне-місто)
         } else if (restrictedKeywords.some(k => nameOnly.includes(k)) || isRivneCity) {
           ui.warningText.innerHTML = "Радимо Delivery або самовивіз з Рівного (для міста Рівне та визначених міст).<br><strong>Вартість доставки до м. Рівне:</strong>";
           ui.warning.classList.remove('hidden');
@@ -221,13 +229,13 @@
           activeMinPrice = finalPrice;
           isSpecialFixedPrice = true;
         
-        // 9. ТЕРНОПІЛЬСЬКА область
+        // 10. ТЕРНОПІЛЬСЬКА область
         } else if (provinceKey === "терно") {
           // Якщо це місто Тернопіль - ФІКСОВАНА ЦІНА
           if (nameOnly.includes("тернопіль") || nameOnly.includes("ternopil")) {
             if (w <= 500) finalPrice = 2500;
             else if (w < 1000) finalPrice = 3000;
-            else finalPrice = 5000;
+            else finalPrice = 8000; 
             activeMinPrice = finalPrice;
             isSpecialFixedPrice = true;
           } else {
@@ -235,27 +243,25 @@
             finalPrice = distRes * (w <= 500 ? 16 : 22);
             if (w > 500 && w < 1000) finalPrice += 1500;
             else if (w >= 1000) finalPrice += 3000;
-            activeMinPrice = 3500;
+            activeMinPrice = 3500; // Підвищена мін. ціна для районів Тернопілля
           }
         
         } else {
-          // --- 10. СТАНДАРТНИЙ ТАРИФ (ВКЛЮЧАЄ ВСЮ ВОЛИНСЬКУ ОБЛАСТЬ, ОКРІМ СПЕЦЗОН) ---
+          // --- 11. СТАНДАРТНИЙ ТАРИФ (ВКЛЮЧАЄ ВСЮ ВОЛИНСЬКУ ОБЛАСТЬ, ОКРІМ СПЕЦЗОН, та ін.) ---
           finalPrice = distRes * (w <= 500 ? 16 : 22);
           if (w > 500 && w < 1000) finalPrice += 1500;
           else if (w >= 1000) finalPrice += 3000;
         }
 
-        // Мінімальна ціна (завжди застосовується)
-        if (finalPrice < activeMinPrice) finalPrice = activeMinPrice;
+        // Мінімальна ціна (застосовується, тільки якщо не було встановлено фіксованого тарифу раніше)
+        if (!isSpecialFixedPrice && finalPrice < activeMinPrice) finalPrice = activeMinPrice;
         
         // Доплата за габарити (ЗАСТОСОВУЄТЬСЯ, ТІЛЬКИ ЯКЩО НЕ БУЛО ВИКЛЮЧЕННЯ ДЛЯ КОСИНО)
         if (!isSpecialLengthHandled) {
              if (l > 5) finalPrice += 2000; else if (l > 4) finalPrice += 700;
         }
 
-        // Фінальне округлення: округлюємо до 500 грн лише, якщо це НЕ фіксований тариф,
-        // а розрахунковий за кілометражем (Стандартний тариф, Тернопільська область райони).
-        // Але тут ми просто округлюємо завжди, оскільки всі фіксовані ціни вже кратні 500.
+        // Фінальне округлення (завжди до 500)
         finalPrice = Math.ceil(finalPrice / 500) * 500;
 
         ui.price.textContent = finalPrice.toLocaleString('uk-UA') + " грн";
