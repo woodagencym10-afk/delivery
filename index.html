@@ -105,8 +105,8 @@
       fees: { 
         weightMed: 1500, 
         weightHeavy: 3000, 
-        lenFiveMeter: 700,   
-        lenSixMeter: 2000    
+        lenFiveMeter: 700,    
+        lenSixMeter: 2000     
       }
     };
 
@@ -125,6 +125,15 @@
 
     // 2. СПИСОК "ВАРАШ" -> (Ціна 6000-7000)
     const varashKeywords = ["вараш", "varash", "кузнецовськ", "kuznetsovsk"];
+
+    // 3. СПИСОК "ПІДКАМІНЬ" -> (Мін. 3500)
+    const pidkaminKeywords = [
+      "підкамінь", "pidkamin", 
+      "накваша", "nakvasha", 
+      "паликорови", "palykorovy",
+      "стиборівка", "styborivka",
+      "яблунівка", "yablunivka"
+    ];
 
     let mapService, autocomplete, selectedPlace = null;
 
@@ -178,7 +187,7 @@
       ui.btn.disabled = true;
       ui.btn.innerHTML = `<span class="loader"></span>`;
 
-      // 1. Аналіз регіону та назви
+      // Аналіз адреси
       let provinceLong = "Не визначено";
       let provinceKey = "";
       const fullAddress = (selectedPlace.formatted_address || "").toLowerCase();
@@ -195,6 +204,10 @@
       // Перевірка ВАРАШ
       let isVarash = false;
       varashKeywords.forEach(k => { if (fullAddress.includes(k) || nameOnly.includes(k)) isVarash = true; });
+
+      // Перевірка ПІДКАМІНЬ (НОВЕ)
+      let isPidkaminZone = false;
+      pidkaminKeywords.forEach(k => { if (fullAddress.includes(k) || nameOnly.includes(k)) isPidkaminZone = true; });
 
       const isRivneCity = nameOnly.trim() === "рівне" || nameOnly.trim() === "rivne" || fullAddress.startsWith("рівне,") || fullAddress.startsWith("rivne,");
 
@@ -227,16 +240,16 @@
           });
         });
 
-        // ================= ЛОГІКА =================
+        // ================= ЛОГІКА ЦІНОУТВОРЕННЯ =================
         let finalPrice = 0;
         let activeMinPrice = 2500;
         let rate = CONFIG.rateStandard;
         let zoneDebug = "";
 
-        // 0. ПРІОРИТЕТ 1: ВАРАШ (6000-7000)
+        // 1. ПРІОРИТЕТ: ВАРАШ (Фікс 6000/7000)
         if (isVarash) {
             zoneDebug = "ВАРАШ (Фікс)";
-            ui.warningText.innerHTML = "Для цього напрямку рекомендуємо порівняти вартість у <strong>'Delivery'</strong> — це може бути вигідніше. Якщо ж вам зручніше нашим авто — фіксована ціна вказана нижче.";
+            ui.warningText.innerHTML = "Для цього напрямку рекомендуємо порівняти вартість у <strong>'Delivery'</strong>. Якщо ж вам зручніше нашим авто — фіксована ціна нижче.";
             ui.warning.classList.remove('hidden');
 
             if (w <= 1000) {
@@ -248,40 +261,50 @@
             }
             activeMinPrice = finalPrice;
 
-        // 0. ПРІОРИТЕТ 2: КЛЕСІВ/БЕРЕЗНЕ -> Рівне
+        // 2. ПРІОРИТЕТ: КЛЕСІВ/БЕРЕЗНЕ (Ціна до Рівного)
         } else if (isRestricted) {
              zoneDebug = "ОБМЕЖЕННЯ (Клесів/Березне)";
-             ui.warningText.innerHTML = "Скористайтесь обрахунком вартості <strong>Delivery</strong> або ж можливий самовивіз з Рівного. <div class='mt-2 pt-2 border-t border-amber-200 font-bold text-slate-900'>Нижче вказана вартість доставки до м. Рівне:</div>";
+             ui.warningText.innerHTML = "Доставка в цей регіон обмежена. Ціна розрахована до м. Рівне.";
              ui.warning.classList.remove('hidden');
              
-             // Ціна як до Рівного
-             if (w <= 500) {
-                 finalPrice = 4500;
-                 ui.wLabel.textContent = "Ціна до м. Рівне (<500кг)";
-             } else if (w < 1000) {
-                 finalPrice = 5000;
-                 ui.wLabel.textContent = "Ціна до м. Рівне (<1т)";
-             } else {
-                 finalPrice = 6000;
-                 ui.wLabel.textContent = "Ціна до м. Рівне (>1т)";
-             }
+             if (w <= 500) finalPrice = 4500;
+             else if (w < 1000) finalPrice = 5000;
+             else finalPrice = 6000;
+             
+             ui.wLabel.textContent = "Тариф до Рівного";
              activeMinPrice = finalPrice;
 
-        // 1. РІВНЕНСЬКА ОБЛАСТЬ
+        // 3. ПРІОРИТЕТ: ПІДКАМІНЬ (Мін 3500) -- НОВИЙ БЛОК --
+        } else if (isPidkaminZone) {
+             zoneDebug = "Підкамінь (Спец)";
+             
+             // Рахуємо стандартно по кілометрах
+             rate = (w <= 500) ? CONFIG.rateLight : CONFIG.rateStandard;
+             finalPrice = distKm * rate;
+
+             // Доплати за вагу
+             if (w > 500 && w <= 1000) finalPrice += CONFIG.fees.weightMed;
+             else if (w > 1000) finalPrice += CONFIG.fees.weightHeavy;
+
+             // ФІКСУЄМО МІНІМУМ 3500
+             activeMinPrice = 3500;
+             ui.wLabel.textContent = w <= 500 ? "Легкий вантаж (Підкамінь)" : "Важкий вантаж (Підкамінь)";
+
+        // 4. РІВНЕНСЬКА ОБЛАСТЬ
         } else if (provinceKey === 'рівн') {
             if (isRivneCity) {
-                zoneDebug = "м. Рівне (Фікс)";
-                if (w <= 500) {
-                    finalPrice = 4500;
-                    ui.wLabel.textContent = "Вага до 500 кг";
-                } else if (w < 1000) {
-                    finalPrice = 5000;
-                    ui.wLabel.textContent = "Вага 501-999 кг";
-                } else {
-                    finalPrice = 6000;
-                    ui.wLabel.textContent = "Вага від 1000 кг";
-                }
-                activeMinPrice = finalPrice; 
+                 zoneDebug = "м. Рівне (Фікс)";
+                 if (w <= 500) {
+                     finalPrice = 4500;
+                     ui.wLabel.textContent = "Вага до 500 кг";
+                 } else if (w < 1000) {
+                     finalPrice = 5000;
+                     ui.wLabel.textContent = "Вага 501-999 кг";
+                 } else {
+                     finalPrice = 6000;
+                     ui.wLabel.textContent = "Вага від 1000 кг";
+                 }
+                 activeMinPrice = finalPrice; 
             } else {
                 zoneDebug = "Рівненська обл (Км)";
                 rate = (w <= 500) ? CONFIG.rateLight : CONFIG.rateStandard;
@@ -294,7 +317,7 @@
                 activeMinPrice = 4500; 
             }
 
-        // 2. ВОЛИНЬ
+        // 5. ВОЛИНЬ
         } else if (provinceKey === 'волин') {
             if (isForcedCloseVolyn || distKm <= 235) {
                zoneDebug = "Ближня Волинь";
@@ -321,7 +344,7 @@
                }
             }
 
-        // 3. ІНШІ ОБЛАСТІ
+        // 6. ІНШІ ОБЛАСТІ (ВКЛЮЧАЮЧИ ЛЬВІВСЬКУ)
         } else {
             zoneDebug = "Інша область";
             rate = (w <= 500) ? CONFIG.rateLight : CONFIG.rateStandard;
@@ -338,7 +361,7 @@
         let priceBeforeExtras = finalPrice;
         if (finalPrice < activeMinPrice) finalPrice = activeMinPrice;
         
-        // --- ГАБАРИТИ ---
+        // --- ГАБАРИТИ (Довжина) ---
         let extraFee = 0;
         
         if (l > 5) {
@@ -367,7 +390,7 @@
         ui.result.classList.remove('hidden');
 
       } catch (e) {
-        ui.err.innerHTML = "Помилка API.";
+        ui.err.innerHTML = "Помилка API або не знайдено маршрут.";
         ui.err.classList.remove('hidden');
       } finally {
         ui.btn.disabled = false;
