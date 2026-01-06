@@ -78,10 +78,14 @@
     const varashKeywords = ["вараш", "varash", "кузнецовськ", "kuznetsovsk"];
     const zalishchykyKeywords = ["заліщики", "zalishchyky"];
     const shumskKeywords = ["шумськ", "shumsk"];
-    // Гірське Закарпаття (Рахівський район)
+    // Гірське Закарпаття (Рахівський район) - 5000/6000 + Довжина
     const zakarpattiaSpecial = ["кваси", "kvasy", "рахів", "rakhiv", "ясіня", "yasinia", "лазещина", "lazeshchyna", "ділове", "dilove"];
-    // Низинне Закарпаття (Косино та навколишні населені пункти)
+    // Низинне Закарпаття (Косино та навколишні) - 6000/8000 (ВКЛЮЧАЮЧИ довжину)
     const zakarpattiaLowland = ["косино", "kosyno", "бадалово", "badalovo", "велика бийгань", "velyka biihan", "горонглаб", "horonglab", "запсонь", "zapsin", "чома", "choma", "яноші", "yanoshi", "берегове", "berehove"];
+    // Волинська область (Фіксований 5000 грн + Довжина)
+    const kaminkashyrskyi = ["камінь-каширський", "kamin-kashyrskyi"];
+    // Рівненська область (Фіксований 5000 грн + Довжина)
+    const rivneSpecial = ["чудель", "chudel", "клевань", "klevan", "оржів", "orzhiv", "великий жолудськ", "velykyi zholudsk", "костопіль", "kostopil"];
 
 
     let mapService, autocomplete, selectedPlace = null;
@@ -146,7 +150,7 @@
 
         let finalPrice = 0;
         let activeMinPrice = 2500;
-        let isSpecialLengthHandled = false; // Новий прапорець для Косино
+        let isSpecialLengthHandled = false; // Прапорець для Косино/Низинного Закарпаття
         const isRivneCity = nameOnly === "рівне" || nameOnly === "rivne" || fullAddr.startsWith("рівне");
 
         // --- ЛОГІКА РОЗРАХУНКУ ТАРИФІВ (СПЕЦТАРИФИ) ---
@@ -162,13 +166,22 @@
            finalPrice = w <= 1000 ? 5000 : 6000;
            activeMinPrice = finalPrice;
         
-        // Спецтариф 2: Низинне Закарпаття (Косино та район) - 6000/8000 грн
+        // Спецтариф 2: Низинне Закарпаття (Косино та район) - 6000/8000 грн (включаючи довжину)
         } else if (zakarpattiaLowland.some(k => nameOnly.includes(k))) {
-            // Встановлюємо фіксовану ціну, яка вже включає габарити до 6 м
             finalPrice = w <= 1000 ? 6000 : 8000;
             activeMinPrice = finalPrice;
-            isSpecialLengthHandled = true; // Встановлюємо прапорець
+            isSpecialLengthHandled = true; // Встановлюємо прапорець, щоб ігнорувати довжину
             
+        // Спецтариф 3: Камінь-Каширський (5000 грн)
+        } else if (kaminkashyrskyi.some(k => nameOnly.includes(k))) {
+           finalPrice = 5000; 
+           activeMinPrice = finalPrice;
+        
+        // Спецтариф 4: Чудель та район (5000 грн)
+        } else if (rivneSpecial.some(k => nameOnly.includes(k))) {
+           finalPrice = 5000; 
+           activeMinPrice = finalPrice;
+
         } else if (shumskKeywords.some(k => nameOnly.includes(k))) {
           finalPrice = w <= 1000 ? 3000 : 4500;
           activeMinPrice = finalPrice;
