@@ -78,8 +78,11 @@
     const varashKeywords = ["вараш", "varash", "кузнецовськ", "kuznetsovsk"];
     const zalishchykyKeywords = ["заліщики", "zalishchyky"];
     const shumskKeywords = ["шумськ", "shumsk"];
-    // Новий напрямок (Закарпаття)
+    // Гірське Закарпаття (Рахівський район)
     const zakarpattiaSpecial = ["кваси", "kvasy", "рахів", "rakhiv", "ясіня", "yasinia", "лазещина", "lazeshchyna", "ділове", "dilove"];
+    // Низинне Закарпаття (Косино та навколишні населені пункти)
+    const zakarpattiaLowland = ["косино", "kosyno", "бадалово", "badalovo", "велика бийгань", "velyka biihan", "горонглаб", "horonglab", "запсонь", "zapsin", "чома", "choma", "яноші", "yanoshi", "берегове", "berehove"];
+
 
     let mapService, autocomplete, selectedPlace = null;
 
@@ -143,9 +146,10 @@
 
         let finalPrice = 0;
         let activeMinPrice = 2500;
+        let isSpecialLengthHandled = false; // Новий прапорець для Косино
         const isRivneCity = nameOnly === "рівне" || nameOnly === "rivne" || fullAddr.startsWith("рівне");
 
-        // --- ЛОГІКА РОЗРАХУНКУ ТАРИФІВ ---
+        // --- ЛОГІКА РОЗРАХУНКУ ТАРИФІВ (СПЕЦТАРИФИ) ---
         
         if (varashKeywords.some(k => nameOnly.includes(k))) {
           ui.warningText.innerHTML = "Радимо скористатись розрахунком <strong>Delivery</strong>, це може бути значно вигідніше.";
@@ -153,11 +157,18 @@
           finalPrice = w <= 1000 ? 6000 : 7000;
           activeMinPrice = finalPrice;
         
-        // Додано: Спецтариф для Кваси / Рахів / Ясіня
+        // Спецтариф 1: Гірське Закарпаття (Рахівський район)
         } else if (zakarpattiaSpecial.some(k => nameOnly.includes(k))) {
            finalPrice = w <= 1000 ? 5000 : 6000;
            activeMinPrice = finalPrice;
-
+        
+        // Спецтариф 2: Низинне Закарпаття (Косино та район) - 6000/8000 грн
+        } else if (zakarpattiaLowland.some(k => nameOnly.includes(k))) {
+            // Встановлюємо фіксовану ціну, яка вже включає габарити до 6 м
+            finalPrice = w <= 1000 ? 6000 : 8000;
+            activeMinPrice = finalPrice;
+            isSpecialLengthHandled = true; // Встановлюємо прапорець
+            
         } else if (shumskKeywords.some(k => nameOnly.includes(k))) {
           finalPrice = w <= 1000 ? 3000 : 4500;
           activeMinPrice = finalPrice;
@@ -180,6 +191,7 @@
             else if (w < 1000) finalPrice = 3000;
             else finalPrice = 5000;
           } else {
+            // Тернопільська область (райони)
             finalPrice = distRes * (w <= 500 ? 16 : 22);
             if (w > 500 && w < 1000) finalPrice += 1500;
             else if (w >= 1000) finalPrice += 3000;
@@ -187,18 +199,22 @@
           }
         
         } else {
-          // Стандартний тариф для всіх інших
+          // --- СТАНДАРТНИЙ ТАРИФ (за кілометражем) ---
           finalPrice = distRes * (w <= 500 ? 16 : 22);
           if (w > 500 && w < 1000) finalPrice += 1500;
           else if (w >= 1000) finalPrice += 3000;
         }
 
-        // Мінімалка та доплата за габарити (довжину)
+        // Мінімальна ціна (завжди застосовується)
         if (finalPrice < activeMinPrice) finalPrice = activeMinPrice;
         
-        // Тут додається +2000 грн, якщо довжина > 5м
-        if (l > 5) finalPrice += 2000; else if (l > 4) finalPrice += 700;
+        // Доплата за габарити (ЗАСТОСОВУЄТЬСЯ, ТІЛЬКИ ЯКЩО НЕ БУЛО ВИКЛЮЧЕННЯ)
+        if (!isSpecialLengthHandled) {
+             if (l > 5) finalPrice += 2000; else if (l > 4) finalPrice += 700;
+        }
 
+
+        // Фінальне округлення
         ui.price.textContent = (Math.ceil(finalPrice / 500) * 500).toLocaleString('uk-UA') + " грн";
         ui.dist.textContent = Math.round(distRes) + " км";
         ui.regionLab.textContent = regionName;
