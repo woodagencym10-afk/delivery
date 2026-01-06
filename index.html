@@ -110,7 +110,7 @@
       }
     };
 
-    // ДОДАНО: Романівка, Підгайці, Боратин (щоб не рахувало як "Далеку Волинь")
+    // Луцьк + Романівка + Підгайці + Боратин (Ближня Волинь)
     const closeVolynKeywords = [
       "луцьк", "lutsk", "володимир", "volodymyr", "ковель", "kovel", 
       "павлівка", "pavlivka", "волошки", "voloshky", "горохів", "horokhiv",
@@ -372,34 +372,44 @@
                 ui.wLabel.textContent = w <= 500 ? "Легкий вантаж" : "Важкий вантаж";
             }
 
-        // 4. ТЕРНОПІЛЬСЬКА ОБЛАСТЬ (МАТРИЦЯ)
+        // 4. ТЕРНОПІЛЬСЬКА ОБЛАСТЬ (НОВА МАТРИЦЯ)
         } else if (provinceKey === 'терно') {
             zoneDebug = "Тернопільська (Матриця)";
+            // Базовий тариф 16 грн для всіх
             rate = 16;
             finalPrice = distKm * rate;
             ui.wLabel.textContent = w <= 500 ? "Легкий вантаж" : "Важкий вантаж";
 
+            // Доплата за вагу
             if (w > 1000) finalPrice += 2000;
             else if (w > 500) finalPrice += 1000;
 
             // --- МАТРИЦЯ МІНІМУМІВ ---
+            
+            // 1. Ближня зона (<100км, Зборів) -> Мін 2000
             if (distKm < 100) {
                 activeMinPrice = 2000;
             } 
+            // 2. Центр (100-135км, Тернопіль) -> Мін 2500
             else if (distKm <= 135) {
                 activeMinPrice = 2500;
+                // СПЕЦ-ФІКС для середньої ваги в Тернополі (500-1000) = 3000
+                if (w > 500 && w <= 1000) activeMinPrice = 3000; 
             } 
-            else {
+            // 3. Дальня зона (>135 км)
+            else if (distKm <= 210) { 
                  if (w <= 500) activeMinPrice = 3500; 
-                 else activeMinPrice = 4000;          
-
-                 if (distKm > 210) {
-                     if (w > 500 && w <= 1000) activeMinPrice = 5000; 
-                     else if (w > 1000) activeMinPrice = 6000;        
-                 }
+                 else if (w <= 1000) activeMinPrice = 4000;
+                 else activeMinPrice = 5500; // Важкий >1т - 5500 грн
+            }
+            // 4. ДУЖЕ Дальня (>210км, Заліщики)
+            else { 
+                 if (w <= 500) activeMinPrice = 3500; 
+                 else if (w <= 1000) activeMinPrice = 5000;
+                 else activeMinPrice = 6000; // Важкий >1т - 6000 грн
             }
 
-        // 5. ВОЛИНЬ (Загальна, з Романівкою як "Ближня")
+        // 5. ВОЛИНЬ (Загальна, з Романівкою)
         } else if (provinceKey === 'волин') {
             if (isForcedCloseVolyn || distKm <= 235) {
                zoneDebug = "Ближня Волинь";
