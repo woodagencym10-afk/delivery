@@ -126,6 +126,9 @@
     // 2. СПИСОК "ВАРАШ"
     const varashKeywords = ["вараш", "varash", "кузнецовськ", "kuznetsovsk"];
 
+    // 3. СПИСОК "БРОДИ" (Виняток для Львівської області: >70км, але ціна 2500)
+    const brodyKeywords = ["броди", "brody"];
+
     let mapService, autocomplete, selectedPlace = null;
 
     function initMaps() {
@@ -185,16 +188,19 @@
       const nameOnly = (selectedPlace.name || "").toLowerCase();
       
       const isLutsk = fullAddress.includes("луцьк") || nameOnly.includes("луцьк");
+      
       let isForcedCloseVolyn = false;
       closeVolynKeywords.forEach(k => { if (fullAddress.includes(k) || nameOnly.includes(k)) isForcedCloseVolyn = true; });
 
-      // Перевірка КЛЕСІВ
       let isRestricted = false;
       restrictedKeywords.forEach(k => { if (fullAddress.includes(k) || nameOnly.includes(k)) isRestricted = true; });
 
-      // Перевірка ВАРАШ
       let isVarash = false;
       varashKeywords.forEach(k => { if (fullAddress.includes(k) || nameOnly.includes(k)) isVarash = true; });
+
+      // Перевірка БРОДИ (Виняток)
+      let isBrody = false;
+      brodyKeywords.forEach(k => { if (fullAddress.includes(k) || nameOnly.includes(k)) isBrody = true; });
 
       const isRivneCity = nameOnly.trim() === "рівне" || nameOnly.trim() === "rivne" || fullAddress.startsWith("рівне,") || fullAddress.startsWith("rivne,");
 
@@ -302,28 +308,36 @@
                }
             }
 
-        // 5. ЛЬВІВСЬКА ОБЛАСТЬ (НОВА СПЕЦІАЛЬНА ЛОГІКА)
+        // 5. ЛЬВІВСЬКА ОБЛАСТЬ (З ВИНЯТКОМ ДЛЯ БРОДІВ)
         } else if (provinceKey === 'львів') {
-            zoneDebug = "Львівська область (Спец)";
+            zoneDebug = "Львівська область";
             
             rate = (w <= 500) ? CONFIG.rateLight : CONFIG.rateStandard;
             finalPrice = distKm * rate;
             ui.wLabel.textContent = w <= 500 ? "Легкий вантаж" : "Важкий вантаж";
 
-            // Доплати за вагу
             if (w > 500 && w <= 1000) finalPrice += CONFIG.fees.weightMed;
             else if (w > 1000) finalPrice += CONFIG.fees.weightHeavy;
 
-            // --- ПРАВИЛО 70 КМ ДЛЯ ЛЬВОВА ---
-            // Соколівка (82км), Підкамінь (124км) -> потраплять під 3500
-            if (distKm > 70) {
+            // --- ПРІОРИТЕТ 1: БРОДИ (Виняток) ---
+            if (isBrody) {
+                // Якщо це Броди, залишаємо стандартний мінімум 2500
+                // Ціна розраховується чесно по км + вага
+                activeMinPrice = 2500;
+                zoneDebug += " (Броди: Стандарт)";
+            } 
+            // --- ПРІОРИТЕТ 2: ДАЛЕКО (>70 км) ---
+            else if (distKm > 70) {
                activeMinPrice = 3500;
-               zoneDebug += " (>70км)";
-            } else {
-               activeMinPrice = 2500; // Ближні села
+               zoneDebug += " (>70км: Мін 3500)";
+            } 
+            // --- ПРІОРИТЕТ 3: БЛИЗЬКО ---
+            else {
+               activeMinPrice = 2500;
+               zoneDebug += " (Стандарт)";
             }
 
-        // 6. ВСІ ІНШІ (ТЕРНОПІЛЬ, ЗАКАРПАТТЯ ТОЩО)
+        // 6. ВСІ ІНШІ
         } else {
             zoneDebug = "Інша область";
             rate = (w <= 500) ? CONFIG.rateLight : CONFIG.rateStandard;
