@@ -116,11 +116,13 @@
       "нововолинськ", "novovolynsk", "торчин", "torchyn"
     ];
     
-    // 1. СПИСОК "КЛЕСІВ/БЕРЕЗНЕ"
+    // 1. СПИСОК "ОБМЕЖЕНІ" (Ціна до Рівного + Delivery)
     const restrictedKeywords = [
       "клесів", "klesiv", "пугач", "puhach", "гранітне", "hranitne",
       "федорівка", "fedorivka", "вири", "vyry", "віри", "viry",
-      "олексіївка", "oleksiivka", "березне", "berezne"
+      "олексіївка", "oleksiivka", "березне", "berezne",
+      "чудель", "chudel", "chudely",
+      "вербень", "verben"
     ];
 
     // 2. СПИСОК "ВАРАШ"
@@ -204,6 +206,7 @@
       let isForcedCloseVolyn = false;
       closeVolynKeywords.forEach(k => { if (fullAddress.includes(k) || nameOnly.includes(k)) isForcedCloseVolyn = true; });
 
+      // Перевірка ОБМЕЖЕНІ
       let isRestricted = false;
       restrictedKeywords.forEach(k => { if (fullAddress.includes(k) || nameOnly.includes(k)) isRestricted = true; });
 
@@ -216,14 +219,12 @@
       let isZhydychyn = false;
       zhydychynKeywords.forEach(k => { if (fullAddress.includes(k) || nameOnly.includes(k)) isZhydychyn = true; });
 
-      // Перевірка КОВЕЛЬ
       let isKovel = false;
       kovelKeywords.forEach(k => { if (fullAddress.includes(k) || nameOnly.includes(k)) isKovel = true; });
 
       let isBrody = false;
       brodyKeywords.forEach(k => { if (fullAddress.includes(k) || nameOnly.includes(k)) isBrody = true; });
 
-      // Перевірка ПЕРЕСЛАВИЧІ
       let isPereslavychi = false;
       pereslavychiKeywords.forEach(k => { if (fullAddress.includes(k) || nameOnly.includes(k)) isPereslavychi = true; });
 
@@ -268,15 +269,13 @@
         // 1. ВАРАШ (Фікс)
         if (isVarash) {
             zoneDebug = "ВАРАШ (Фікс)";
-            // Це оголошення залишаємо, як просили
-            ui.warningText.innerHTML = "Для цього напрямку діє фіксована ціна.";
-            ui.warning.classList.remove('hidden');
+            // Оголошення прибрано за запитом
 
             if (w <= 1000) {
                  finalPrice = 6000;
                  ui.wLabel.textContent = "Ціна до м. Вараш (<1т)";
             } else {
-                 finalPrice = 7000;
+                 finalPrice = 8000; // НОВА ЦІНА 8000
                  ui.wLabel.textContent = "Ціна до м. Вараш (>1т)";
             }
             activeMinPrice = finalPrice;
@@ -285,7 +284,6 @@
         // 1.1 РАТНЕ (Фікс)
         } else if (isRatne) {
             zoneDebug = "РАТНЕ (Фікс 7к)";
-            // Оголошення прибрано
 
             if (w <= 1000) {
                  finalPrice = 7000;
@@ -300,7 +298,6 @@
         // 1.2 ЖИДИЧИН (Фікс)
         } else if (isZhydychyn) {
             zoneDebug = "ЖИДИЧИН (Фікс)";
-            // Оголошення прибрано
             
             if (w <= 1000) {
                 finalPrice = 3500;
@@ -315,7 +312,6 @@
         // 1.3 КОВЕЛЬ (Фікс)
         } else if (isKovel) {
             zoneDebug = "КОВЕЛЬ (Фікс)";
-            // Оголошення прибрано
             
             if (w <= 1000) {
                 finalPrice = 6000;
@@ -330,7 +326,6 @@
         // 1.4 ПЕРЕСЛАВИЧІ (Фікс)
         } else if (isPereslavychi) {
             zoneDebug = "ПЕРЕСЛАВИЧІ (Фікс)";
-            // Оголошення прибрано
             
             if (w <= 1000) {
                 finalPrice = 3500;
@@ -342,15 +337,15 @@
             activeMinPrice = finalPrice;
             skipLengthFee = true;
 
-        // 2. КЛЕСІВ/БЕРЕЗНЕ
+        // 2. ОБМЕЖЕННЯ (КЛЕСІВ/БЕРЕЗНЕ/ЧУДЕЛЬ/ВЕРБЕНЬ) - Ціна до Рівного
         } else if (isRestricted) {
-             zoneDebug = "ОБМЕЖЕННЯ (Клесів/Березне)";
-             // Це оголошення залишаємо
-             ui.warningText.innerHTML = "Доставка в цей регіон обмежена. Ціна розрахована до м. Рівне.";
+             zoneDebug = "ОБМЕЖЕННЯ (Клесів/Березне/Чудель/Вербень)";
+             
+             ui.warningText.innerHTML = "Зробіть запит на доставку <strong>Delivery</strong> або ж можливий самовивіз з Рівного.<br><span class='mt-1 block font-bold'>Вартість доставки до м. Рівне:</span>";
              ui.warning.classList.remove('hidden');
              
              if (w <= 500) finalPrice = 4500;
-             else if (w < 1000) finalPrice = 5000;
+             else if (w <= 1000) finalPrice = 5000;
              else finalPrice = 6000;
              
              ui.wLabel.textContent = "Тариф до Рівного";
